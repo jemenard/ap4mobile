@@ -67,6 +67,12 @@ class AfficherInfo extends StatelessWidget {
                 ],
               ),
             ),
+            ElevatedButton(
+              onPressed: () {
+                // TODO: Add action for button
+              },
+              child: const Text("Acheter"),
+            ),
           ],
         ),
       ),

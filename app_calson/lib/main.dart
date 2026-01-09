@@ -93,7 +93,7 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           NavigationDestination(
             icon: Icon(Icons.music_note),
-            label: 'Liste des festivals',
+            label: 'Festivals',
           ),
           NavigationDestination(
             icon: Icon(Icons.confirmation_number_outlined),

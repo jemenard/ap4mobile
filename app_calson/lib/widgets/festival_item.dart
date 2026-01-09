@@ -13,7 +13,7 @@ class FestivalItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(2),
-      height: 100, // Reduced height slightly since no image
+      // height: 100, // Removed to let content determine height
       child: Card(
         elevation: 3,
         child: Padding(
