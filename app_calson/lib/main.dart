@@ -168,7 +168,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF406080).withOpacity(0.1),
+                    color: const Color(0xFF406080).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.new_releases, color: Color(0xFF406080)),

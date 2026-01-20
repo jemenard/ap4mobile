@@ -73,7 +73,10 @@ class AfficherInfo extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ManifestationsPage(festival: festival),
+                    builder: (context) => ManifestationsPage(
+                      festival: festival,
+                      festivalId: festival.id,
+                    ),
                   ),
                 );
               },
