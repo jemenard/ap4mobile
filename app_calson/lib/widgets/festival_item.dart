@@ -15,6 +15,7 @@ class FestivalItem extends StatelessWidget {
       padding: const EdgeInsets.all(2),
       // height: 100, // Removed to let content determine height
       child: Card(
+        // Carte visuelle avec ombre portée
         elevation: 3,
         child: Padding(
           padding: const EdgeInsets.all(12.0),

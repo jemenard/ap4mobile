@@ -236,10 +236,12 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget _buildListeFestivalPage() {
     final databaseService = DatabaseService();
 
+    // FutureBuilder : Construit l'interface en fonction de l'état de la requête (en attente, erreur, succès)
     return FutureBuilder<List<Festival>>(
-      future: databaseService.getFestivals(),
+      future: databaseService.getFestivals(), // Appel asynchrone à l'API
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
+          // Affiche un rond de chargement pendant la requête
           return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
           return Center(child: Text("Erreur : ${snapshot.error}"));
@@ -255,8 +257,8 @@ class _MyHomePageState extends State<MyHomePage> {
           child: ListView.builder(
             shrinkWrap: true,
             padding: const EdgeInsets.fromLTRB(2.0, 10.0, 2.0, 10.0),
-            itemCount: festivals.length,
-            itemBuilder: (context, index) {
+            itemCount: festivals.length, // Nombre total de festivals
+            itemBuilder: (context, index) { // Construit chaque ligne à la demande
               final festival = festivals[index];
               return GestureDetector(
                 onTap: () {
@@ -264,6 +266,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
+                      // Navigation vers la page de détails en passant l'objet "festival"
                       builder: (context) => AfficherInfo(festival: festival),
                     ),
                   );

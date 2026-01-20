@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/festival.dart';
 import 'package:intl/intl.dart';
+import 'manifestations_page.dart';
 
 class AfficherInfo extends StatelessWidget {
   final Festival festival;
@@ -67,11 +68,17 @@ class AfficherInfo extends StatelessWidget {
                 ],
               ),
             ),
-            ElevatedButton(
+            ElevatedButton.icon(
               onPressed: () {
-                // TODO: Add action for button
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ManifestationsPage(festival: festival),
+                  ),
+                );
               },
-              child: const Text("Acheter"),
+              icon: const Icon(Icons.list_alt),
+              label: const Text("Détails des manifestations"),
             ),
           ],
         ),
