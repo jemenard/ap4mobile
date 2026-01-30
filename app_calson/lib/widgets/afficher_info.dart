@@ -12,13 +12,13 @@ class AfficherInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     // Format dates
     final dateFormat = DateFormat('dd/MM/yyyy');
-    final dateDebut = dateFormat.format(festival.dateDebut);
-    final dateFin = dateFormat.format(festival.dateFin);
+    final dateDebut = dateFormat.format(festival.startDate);
+    final dateFin = dateFormat.format(festival.endDate);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          "Festival ${festival.annee}",
+          festival.name,
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 18),
         ),
@@ -48,13 +48,25 @@ class AfficherInfo extends StatelessWidget {
               style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
 
+            const SizedBox(height: 10),
+
+            Text(
+              "Édition ${festival.annee}",
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+
             const SizedBox(height: 20),
 
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.green.shade200,
+                color: Colors.green.shade50,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green.shade200),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,11 +75,36 @@ class AfficherInfo extends StatelessWidget {
                   const SizedBox(height: 10),
                   _buildInfoRow(Icons.event_busy, "Fin", dateFin),
                   const SizedBox(height: 10),
+                  _buildInfoRow(Icons.location_on, "Lieu", festival.location),
+                  const SizedBox(height: 10),
                   _buildInfoRow(
                       Icons.euro, "Prix", "${festival.prix.toStringAsFixed(2)} €"),
                 ],
               ),
             ),
+
+            const SizedBox(height: 20),
+
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "À propos du festival",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    festival.description,
+                    style: const TextStyle(fontSize: 16, height: 1.5),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.push(
@@ -80,6 +117,12 @@ class AfficherInfo extends StatelessWidget {
                   ),
                 );
               },
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               icon: const Icon(Icons.list_alt),
               label: const Text("Détails des manifestations"),
             ),

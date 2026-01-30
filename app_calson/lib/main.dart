@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'widgets/my_flutter_app_icons.dart';
 import 'widgets/carousel.dart';
-
+import 'package:url_launcher/url_launcher.dart';
 import 'widgets/festival_item.dart';
 import 'widgets/afficher_info.dart';
 import 'widgets/section_header.dart';
@@ -9,6 +9,7 @@ import 'services/database_service.dart';
 import 'models/festival.dart';
 import 'widgets/home_appbar.dart';
 import 'package:flutter/services.dart';
+import 'widgets/scanner.dart';
 
 void main() {
   runApp(const MyApp());
@@ -77,6 +78,7 @@ class _MyHomePageState extends State<MyHomePage> {
           _buildAccueilPage(),
           _buildListeFestivalPage(),
           _buildTicketPage(),
+          _buildscannerPage(),
           _buildParamPage(),     
         ],
       ),
@@ -98,6 +100,11 @@ class _MyHomePageState extends State<MyHomePage> {
           NavigationDestination(
             icon: Icon(Icons.confirmation_number_outlined),
             label: 'Tickets',
+          ),
+          
+          NavigationDestination(
+            icon: Icon(Icons.qr_code),
+            label: 'Scanner',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings),
@@ -127,6 +134,7 @@ class _MyHomePageState extends State<MyHomePage> {
               child: Icon(Icons.search, color: Colors.white),
             )
           ],
+        
         );
 
         case 2:
@@ -136,7 +144,20 @@ class _MyHomePageState extends State<MyHomePage> {
           showLogo: false,
         );
 
-      case 3:
+        case 3:
+        return const GradientAppBar(
+          title: "Scanner",
+          subtitle: "Scanner un code QR",
+          showLogo: false,
+          actions: [
+             Padding(
+              padding: EdgeInsets.only(right: 16.0),
+              child: Icon(Icons.qr_code_scanner, color: Colors.white),
+            )
+          ],
+        );
+
+      case 4:
         return const GradientAppBar(
           title: "Paramètres",
           subtitle: "Configuration de l'application",
@@ -291,6 +312,60 @@ Widget _buildTicketPage() {
     ),
   );
 }
+
+
+Widget _buildscannerPage() {
+  return Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.qr_code_scanner, size: 80, color: Color(0xFF406080)),
+        const SizedBox(height: 20),
+        const Text(
+          "Prêt à scanner ?",
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 30),
+        ElevatedButton.icon(
+          onPressed: () async 
+          {
+            final String? result = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const Scanner()),
+            );
+            if (result != null && mounted) {
+            // Vérifie si le résultat ressemble à une URL
+            if (result.startsWith('http://') || result.startsWith('https://')) {
+              final Uri url = Uri.parse(result);
+              // Tente d'ouvrir le lien
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Impossible d'ouvrir l'URL : $result")),
+                );
+              }
+            } else {
+              // Sinon, affiche simplement le texte
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Code détecté : $result")),
+              );
+            }
+          }
+          },
+          icon: const Icon(Icons.camera_alt),
+          label: const Text("Ouvrir le scanner"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF406080),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 
   Widget _buildParamPage() {
     return Center(
