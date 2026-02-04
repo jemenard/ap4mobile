@@ -13,9 +13,11 @@ class DatabaseService {
   }
 
   DatabaseService._internal();
+  
+  bool isLoggedIn = false; // Stockage de l'état de connexion
 
   Future<List<Festival>> getFestivals() async {
-    final url = Config.apiUrl;
+    final url = Config.apiUrlFestivals;
     print('--- API REQUEST (getFestivals) ---');
     print('URL: $url');
     try {
@@ -24,7 +26,8 @@ class DatabaseService {
       
       if (response.statusCode == 200) {
         print('Response Body: ${response.body}');
-        List<dynamic> body = jsonDecode(response.body);
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        final List<dynamic> body = jsonResponse['data'];
         return body.map((dynamic item) => Festival.fromMap(item)).toList();
       } else {
         print('Error Body: ${response.body}');
@@ -39,7 +42,9 @@ class DatabaseService {
   }
 
   Future<List<Manifestation>> getManifestations(int festivalId) async {
-    final url = "${Config.apiUrl}/manifestations?festivalId=$festivalId";
+
+    
+    final url = "${Config.apiUrlManifestations}/$festivalId/manifestations";
     print('--- API REQUEST (getManifestations) ---');
     print('URL: $url');
     try {
@@ -48,7 +53,8 @@ class DatabaseService {
 
       if (response.statusCode == 200) {
         print('Response Body: ${response.body}');
-        List<dynamic> body = jsonDecode(response.body);
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        final List<dynamic> body = jsonResponse['data'];
         return body.map((dynamic item) => Manifestation.fromMap(item)).toList();
       } else {
         print('Error Body: ${response.body}');
@@ -60,5 +66,71 @@ class DatabaseService {
     } finally {
       print('--- END API REQUEST ---');
     }
+  }
+
+  Future<bool> connexion(String email, String mdp) async {
+    final url = Config.apiUrlConnexion;
+    print('--- API REQUEST (connexion) ---');
+    print('URL: $url');
+    try {
+      final response = await http.post(Uri.parse(url), body: {
+        'email': email,
+        'mdp': mdp,
+      });
+      print('Status Code: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        print('Response Body: ${response.body}');
+        isLoggedIn = true;
+        return true;
+      } else {
+        print('Error Body: ${response.body}');
+        throw "Erreur serveur : ${response.statusCode}";
+      }
+    } catch (e) {
+      print('!!! API Error !!! : $e');
+      rethrow;
+    } finally {
+      print('--- END API REQUEST ---');
+    }
+  }
+
+  Future<bool> inscription
+  ({
+    required String nom,
+    required String prenom,
+    required String email,
+    required String telephone,
+    required String mdp,
+  }) async {
+    print('--- API REQUEST (inscription) ---');
+    final url = Config.apiUrlInscription;
+    print('URL: $url');
+    try {
+      final response = await http.post(Uri.parse(url), body: {
+        'nom': nom,
+        'prenom': prenom,
+        'email': email,
+        'telephone': telephone,
+        'mdp': mdp,
+      });
+      print('Status Code: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        print('Response Body: ${response.body}');
+        isLoggedIn = true;
+        return true;
+      } else {
+        print('Error Body: ${response.body}');
+        throw "Erreur serveur : ${response.statusCode}";
+      }
+    } catch (e) {
+      print('!!! API Error !!! : $e');
+      rethrow;
+    } finally {
+      print('--- END API REQUEST ---');
+    }
+  }
+
+  void deconnexion() {
+    isLoggedIn = false;
   }
 }

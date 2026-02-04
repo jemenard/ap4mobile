@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'widgets/my_flutter_app_icons.dart';
 import 'widgets/carousel.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'widgets/festival_item.dart';
@@ -10,6 +9,7 @@ import 'models/festival.dart';
 import 'widgets/home_appbar.dart';
 import 'package:flutter/services.dart';
 import 'widgets/scanner.dart';
+import 'widgets/connexionPage.dart';
 
 void main() {
   runApp(const MyApp());
@@ -67,6 +67,7 @@ final List<Widget> carouselItems = images.map((path) {
 
 class _MyHomePageState extends State<MyHomePage> {
   int currentIndex = 0;
+  final DatabaseService _databaseService = DatabaseService();
 
   @override
   Widget build(BuildContext context) {
@@ -83,30 +84,36 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: currentIndex,
+        selectedIndex: _databaseService.isLoggedIn ? currentIndex : (currentIndex == 4 ? 2 : currentIndex),
         onDestinationSelected: (value) {
-          setState(() => currentIndex = value);
+          int targetIndex = value;
+          if (!_databaseService.isLoggedIn) {
+            // Mapping si non connecté : [0, 1, 2] -> [0, 1, 4]
+            if (value == 2) targetIndex = 4;
+          }
+          setState(() => currentIndex = targetIndex);
         },
-        destinations: const [
-          NavigationDestination(
+        destinations: [
+          const NavigationDestination(
             selectedIcon: Icon(Icons.home),
             icon: Icon(Icons.home_outlined),
             label: 'Accueil',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.music_note),
             label: 'Festivals',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.confirmation_number_outlined),
-            label: 'Tickets',
-          ),
-          
-          NavigationDestination(
-            icon: Icon(Icons.qr_code),
-            label: 'Scanner',
-          ),
-          NavigationDestination(
+          if (_databaseService.isLoggedIn) ...[
+            const NavigationDestination(
+              icon: Icon(Icons.confirmation_number_outlined),
+              label: 'Tickets',
+            ),
+            const NavigationDestination(
+              icon: Icon(Icons.qr_code),
+              label: 'Scanner',
+            ),
+          ],
+          const NavigationDestination(
             icon: Icon(Icons.settings),
             label: 'Paramètres',
           ),
@@ -372,6 +379,24 @@ Widget _buildscannerPage() {
       child: Column(
         children: [
           const SizedBox(height: 15),
+          if (!_databaseService.isLoggedIn)
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListTile(
+                leading: const Icon(Icons.login, color: Color(0xFF406080)),
+                title: const Text("Connexion"),
+                subtitle: const Text("Connectez-vous pour voir vos tickets"),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ConnexionPage()),
+                  );
+                },
+              ),
+            ),
+          const SizedBox(height: 10),
           Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -381,16 +406,24 @@ Widget _buildscannerPage() {
               subtitle: Text("Work in progress"),
             ),
           ),
-          const SizedBox(height: 10),
-          Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+          if (_databaseService.isLoggedIn) ...[
+            const SizedBox(height: 10),
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: const Text("Déconnexion"),
+                onTap: () {
+                  setState(() {
+                    _databaseService.deconnexion();
+                    currentIndex = 0; // Retour à l'accueil
+                  });
+                },
+              ),
             ),
-            child: const ListTile(
-              title: Text("Param 2"),
-              subtitle: Text("Work in progress"),
-            ),
-          ),
+          ],
         ],
       ),
     );

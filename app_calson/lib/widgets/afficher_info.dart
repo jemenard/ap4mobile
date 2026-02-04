@@ -96,7 +96,7 @@ class AfficherInfo extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    festival.description,
+                    festival.theme,
                     style: const TextStyle(fontSize: 16, height: 1.5),
                   ),
                 ],
@@ -134,6 +134,7 @@ class AfficherInfo extends StatelessWidget {
 
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 20),
         const SizedBox(width: 8),
@@ -141,10 +142,7 @@ class AfficherInfo extends StatelessWidget {
           "$label : ",
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 16),
-        ),
+        Expanded(child: Text(value, style: const TextStyle(fontSize: 16))),
       ],
     );
   }

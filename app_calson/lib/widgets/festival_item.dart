@@ -38,9 +38,11 @@ class FestivalItem extends StatelessWidget {
                       children: [
                         const Icon(Icons.location_on, size: 14, color: Colors.grey),
                         const SizedBox(width: 4),
-                        Text(
-                          festival.location,
-                          style: const TextStyle(color: Colors.grey),
+                        Expanded(
+                          child: Text(
+                            festival.location,
+                            style: const TextStyle(color: Colors.grey),
+                          ),
                         ),
                       ],
                     ),

@@ -39,8 +39,8 @@ class ManifestationsPage extends StatelessWidget {
                         itemBuilder: (context, index) {
                           final manifestation = manifestations[index];
                           return ListTile(
-                            title: Text(manifestation.nom),
-                            subtitle: Text(manifestation.date),
+                            title: Text(manifestation.titre),
+                            subtitle: Text(manifestation.resume),
                             trailing: const Icon(Icons.arrow_forward_ios),
                             onTap: () {
                               Navigator.push(

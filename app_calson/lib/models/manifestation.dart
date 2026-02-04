@@ -1,34 +1,31 @@
 class Manifestation {
   final int id;
-  final String nom;
-  final String date;
-  final String heure;
-  final String lieu;
-  final String description;
-  final String image;
+  final String titre;
+  final String resume;
+  final String publicVise;
+  final String jaugeMax;
+  final String prix;
   final int festivalId;
 
   Manifestation({
     required this.id,
-    required this.nom,
-    required this.date,
-    required this.heure,
-    required this.lieu,
-    required this.description,
-    required this.image,
+    required this.titre,
+    required this.resume,
+    required this.publicVise,
+    required this.jaugeMax,
+    required this.prix,
     required this.festivalId,
   });
 
   factory Manifestation.fromMap(Map<String, dynamic> map) {
     return Manifestation(
-      id: map['id'],
-      nom: map['nom'],
-      date: map['date'],
-      heure: map['heure'],
-      lieu: map['lieu'],
-      description: map['description'],
-      image: map['image'],
-      festivalId: map['festivalId'],
+      id: int.parse(map['id'].toString()),
+      titre: map['titre'],
+      resume: map['resume'],
+      publicVise: map['publicVise'],
+      jaugeMax: map['jaugeMax'],
+      prix: map['prix'] ?? "Gratuit",
+      festivalId: int.parse(map['festivalId'].toString()),
     );
   }
 }
