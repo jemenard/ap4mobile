@@ -72,11 +72,20 @@ class DatabaseService {
     final url = Config.apiUrlConnexion;
     print('--- API REQUEST (connexion) ---');
     print('URL: $url');
-    try {
-      final response = await http.post(Uri.parse(url), body: {
-        'email': email,
-        'mdp': mdp,
-      });
+    try 
+    {
+      final response = await http.post(
+        Uri.parse(url),
+        headers:
+        {
+          'Accept': 'application/json', // <--- LA LIGNE MAGIQUE
+        },
+        body:
+        {
+          'email': email,
+          'password': mdp,
+        },
+      );
       print('Status Code: ${response.statusCode}');
       if (response.statusCode == 200) {
         print('Response Body: ${response.body}');
@@ -105,16 +114,25 @@ class DatabaseService {
     print('--- API REQUEST (inscription) ---');
     final url = Config.apiUrlInscription;
     print('URL: $url');
-    try {
-      final response = await http.post(Uri.parse(url), body: {
-        'nom': nom,
-        'prenom': prenom,
-        'email': email,
-        'telephone': telephone,
-        'mdp': mdp,
-      });
+    try 
+    {
+      final response = await http.post(
+        Uri.parse(url),
+        headers:
+        {
+          'Accept': 'application/json', // <--- LA LIGNE MAGIQUE
+        },
+        body:
+        {
+          'name': nom,
+          'prenom': prenom,
+          'email': email,
+          'telephone': telephone,
+          'password': mdp,
+        },
+      );
       print('Status Code: ${response.statusCode}');
-      if (response.statusCode == 200) {
+      if (response.statusCode == 201) {
         print('Response Body: ${response.body}');
         isLoggedIn = true;
         return true;
@@ -122,6 +140,8 @@ class DatabaseService {
         print('Error Body: ${response.body}');
         throw "Erreur serveur : ${response.statusCode}";
       }
+
+      
     } catch (e) {
       print('!!! API Error !!! : $e');
       rethrow;

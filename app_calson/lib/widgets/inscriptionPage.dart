@@ -87,6 +87,7 @@ class _InscriptionPageState extends State<InscriptionPage> {
                 labelText: "Mot de passe",
                 border: OutlineInputBorder(),
               ),
+              obscureText: true,
             ),
             const SizedBox(height: 20),
             ElevatedButton(
