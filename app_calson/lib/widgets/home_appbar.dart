@@ -22,8 +22,8 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Color(0xFF406080), // Steel Blue
-            Color(0xFF80A0A0), // Muted Teal
+            Color(0xFF13293d), // Deep Blue (New Theme)
+            Color(0xFF2a4e6c), // Lighter Blue for gradient
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -53,7 +53,7 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
                 child: ClipOval(
                   child: Image.asset(
-                    "assets/images/logo.png",
+                    "assets/images/new_logo.png",
                     width: 50,
                     height: 50,
                     fit: BoxFit.cover,

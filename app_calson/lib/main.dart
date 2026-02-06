@@ -25,8 +25,8 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF406080), // Steel Blue from logo
-          secondary: const Color(0xFF80A0A0), // Muted Teal from logo
+          seedColor: const Color(0xFF13293d), // Deep Blue from new logo
+          secondary: const Color(0xFF2a4e6c), // Lighter Blue
           brightness: Brightness.light,
         ),
         useMaterial3: true,
@@ -80,7 +80,7 @@ class _MyHomePageState extends State<MyHomePage> {
           _buildListeFestivalPage(),
           _buildTicketPage(),
           _buildscannerPage(),
-          _buildParamPage(),     
+          _buildParamPage(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -123,53 +123,87 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  /// Construit le bouton d'action pour la connexion/déconnexion dans la barre d'application.
+  Widget _buildAuthAction() {
+    return IconButton(
+      icon: Icon(
+        _databaseService.isLoggedIn ? Icons.logout : Icons.account_circle,
+        color: Colors.white,
+      ),
+      onPressed: () {
+        if (_databaseService.isLoggedIn) {
+          // Déconnexion
+          setState(() {
+            _databaseService.deconnexion();
+            currentIndex = 0; // Retour à l'accueil après déconnexion
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Vous avez été déconnecté.")),
+          );
+        } else {
+          // Navigation vers la page de connexion
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ConnexionPage()),
+          );
+        }
+      },
+      tooltip: _databaseService.isLoggedIn ? "Se déconnecter" : "Se connecter",
+    );
+  }
+
   PreferredSizeWidget _buildAppBar() {
     switch (currentIndex) {
       case 0:
-        return const GradientAppBar(
+        return GradientAppBar(
           title: "Bienvenue !",
           subtitle: "Trouvez vos festivals préférés",
           showLogo: true,
+          actions: [_buildAuthAction()],
         );
       case 1:
-        return const GradientAppBar(
+        return GradientAppBar(
           title: "Liste des festivals",
           subtitle: "Explorez tout les festivals",
           showLogo: false,
           actions: [
-             Padding(
-              padding: EdgeInsets.only(right: 16.0),
+             const Padding(
+              padding: EdgeInsets.only(right: 8.0), // Reduced because we add another icon
               child: Icon(Icons.search, color: Colors.white),
-            )
+            ),
+            _buildAuthAction(),
           ],
         
         );
 
         case 2:
-        return const GradientAppBar(
+        return GradientAppBar(
           title: "Tickets",
           subtitle: "Retrouvez vos tickets",
           showLogo: false,
+          actions: [_buildAuthAction()],
         );
 
         case 3:
-        return const GradientAppBar(
+        return GradientAppBar(
           title: "Scanner",
           subtitle: "Scanner un code QR",
           showLogo: false,
           actions: [
-             Padding(
-              padding: EdgeInsets.only(right: 16.0),
+             const Padding(
+              padding: EdgeInsets.only(right: 8.0),
               child: Icon(Icons.qr_code_scanner, color: Colors.white),
-            )
+            ),
+            _buildAuthAction(),
           ],
         );
 
       case 4:
-        return const GradientAppBar(
+        return GradientAppBar(
           title: "Paramètres",
           subtitle: "Configuration de l'application",
           showLogo: false,
+          actions: [_buildAuthAction()],
         );
       default:
         return const GradientAppBar(title: "CaleSon");
@@ -197,10 +231,10 @@ class _MyHomePageState extends State<MyHomePage> {
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF406080).withValues(alpha: 0.1),
+                    color: const Color(0xFF13293d).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.new_releases, color: Color(0xFF406080)),
+                  child: const Icon(Icons.new_releases, color: Color(0xFF13293d)),
                 ),
                 title: const Text(
                   "Dernières sorties",
@@ -327,7 +361,7 @@ Widget _buildscannerPage() {
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(Icons.qr_code_scanner, size: 80, color: Color(0xFF406080)),
+        const Icon(Icons.qr_code_scanner, size: 80, color: Color(0xFF13293d)),
         const SizedBox(height: 20),
         const Text(
           "Prêt à scanner ?",
@@ -364,7 +398,7 @@ Widget _buildscannerPage() {
           icon: const Icon(Icons.camera_alt),
           label: const Text("Ouvrir le scanner"),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF406080),
+            backgroundColor: const Color(0xFF13293d),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           ),
@@ -380,24 +414,6 @@ Widget _buildscannerPage() {
       child: Column(
         children: [
           const SizedBox(height: 15),
-          if (!_databaseService.isLoggedIn)
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListTile(
-                leading: const Icon(Icons.login, color: Color(0xFF406080)),
-                title: const Text("Connexion"),
-                subtitle: const Text("Connectez-vous pour voir vos tickets"),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ConnexionPage()),
-                  );
-                },
-              ),
-            ),
-          const SizedBox(height: 10),
           Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -407,24 +423,6 @@ Widget _buildscannerPage() {
               subtitle: Text("Work in progress"),
             ),
           ),
-          if (_databaseService.isLoggedIn) ...[
-            const SizedBox(height: 10),
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListTile(
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text("Déconnexion"),
-                onTap: () {
-                  setState(() {
-                    _databaseService.deconnexion();
-                    currentIndex = 0; // Retour à l'accueil
-                  });
-                },
-              ),
-            ),
-          ],
         ],
       ),
     );
