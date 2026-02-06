@@ -46,7 +46,7 @@ class MyHomePage extends StatefulWidget {
 
 
 
-//liste des images pour le carousel
+// Liste des chemins d'accès aux images affichées dans le carousel d'accueil.
 final List<String> images = [
   'assets/images/afficheLogo.png',
   'assets/images/afficheNoel.jpg',
@@ -88,7 +88,8 @@ class _MyHomePageState extends State<MyHomePage> {
         onDestinationSelected: (value) {
           int targetIndex = value;
           if (!_databaseService.isLoggedIn) {
-            // Mapping si non connecté : [0, 1, 2] -> [0, 1, 4]
+            // Si l'utilisateur n'est pas connecté, le clic sur l'onglet "Tickets" (index 2 dans la barre)
+            // redirige vers l'onglet "Paramètres" (index 4) pour l'inviter à se connecter.
             if (value == 2) targetIndex = 4;
           }
           setState(() => currentIndex = targetIndex);
@@ -264,12 +265,12 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget _buildListeFestivalPage() {
     final databaseService = DatabaseService();
 
-    // FutureBuilder : Construit l'interface en fonction de l'état de la requête (en attente, erreur, succès)
+    // Widget FutureBuilder pour gérer l'état asynchrone de la récupération des festivals.
     return FutureBuilder<List<Festival>>(
-      future: databaseService.getFestivals(), // Appel asynchrone à l'API
+      future: databaseService.getFestivals(), // Appel au service pour récupérer les données.
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          // Affiche un rond de chargement pendant la requête
+          // Affichage d'un indicateur de chargement pendant la requête réseau.
           return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
           return Center(child: Text("Erreur : ${snapshot.error}"));
@@ -285,8 +286,8 @@ class _MyHomePageState extends State<MyHomePage> {
           child: ListView.builder(
             shrinkWrap: true,
             padding: const EdgeInsets.fromLTRB(2.0, 10.0, 2.0, 10.0),
-            itemCount: festivals.length, // Nombre total de festivals
-            itemBuilder: (context, index) { // Construit chaque ligne à la demande
+            itemCount: festivals.length, 
+            itemBuilder: (context, index) { // Construction dynamique des éléments de la liste.
               final festival = festivals[index];
               return GestureDetector(
                 onTap: () {
@@ -294,7 +295,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      // Navigation vers la page de détails en passant l'objet "festival"
+                      // Navigation vers la page de détails du festival sélectionné.
                       builder: (context) => AfficherInfo(festival: festival),
                     ),
                   );
@@ -344,7 +345,7 @@ Widget _buildscannerPage() {
             // Vérifie si le résultat ressemble à une URL
             if (result.startsWith('http://') || result.startsWith('https://')) {
               final Uri url = Uri.parse(result);
-              // Tente d'ouvrir le lien
+              // Si le résultat est une URL valide, tentative d'ouverture dans le navigateur.
               if (await canLaunchUrl(url)) {
                 await launchUrl(url, mode: LaunchMode.externalApplication);
               } else {
@@ -353,7 +354,7 @@ Widget _buildscannerPage() {
                 );
               }
             } else {
-              // Sinon, affiche simplement le texte
+              // Si le résultat n'est pas une URL, affichage du contenu brut dans une SnackBar.
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text("Code détecté : $result")),
               );

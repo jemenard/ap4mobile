@@ -10,7 +10,7 @@ class InscriptionPage extends StatefulWidget {
 }
 
 class _InscriptionPageState extends State<InscriptionPage> {
-  // 1. Déclarer vos 5 contrôleurs ici
+  // Contrôleurs pour récupérer les informations saisies dans les champs du formulaire d'inscription.
   final TextEditingController _nomController = TextEditingController();
   final TextEditingController _prenomController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -19,6 +19,7 @@ class _InscriptionPageState extends State<InscriptionPage> {
 
   final DatabaseService _service = DatabaseService();
 
+  /// Méthode déclenchée pour valider et envoyer les données d'inscription.
   void _validerInscription() async {
     
     String nom = _nomController.text;
@@ -28,7 +29,10 @@ class _InscriptionPageState extends State<InscriptionPage> {
     String mdp = _passController.text;
     try
     {
+      // Appel du service pour inscrire l'utilisateur.
       bool result = await _service.inscription(nom: nom, prenom: prenom, email: email, telephone: telephone, mdp: mdp);
+      
+      // Si l'inscription réussit et que le widget est toujours monté, redirection vers l'accueil.
       if(result && mounted)
       {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MyHomePage()));
@@ -49,7 +53,9 @@ class _InscriptionPageState extends State<InscriptionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Inscription")),
-      body: SingleChildScrollView( // Très important pour éviter les erreurs quand le clavier s'affiche
+      // Utilisation d'un SingleChildScrollView pour éviter les débordements de pixels (overflow) 
+      // lorsque le clavier apparaît à l'écran.
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [

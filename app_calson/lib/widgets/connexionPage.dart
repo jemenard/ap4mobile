@@ -11,22 +11,24 @@ class ConnexionPage extends StatefulWidget {
 }
 
 class _ConnexionPageState extends State<ConnexionPage> {
-  // 1. Déclarer les contrôleurs pour récupérer le texte
+  // Contrôleurs pour récupérer le texte saisi par l'utilisateur dans les champs Email et Mot de passe.
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _mdpController = TextEditingController();
   
   final DatabaseService _databaseService = DatabaseService();
 
+  /// Méthode déclenchée lors du clic sur le bouton "Se connecter".
   void _tenterConnexion() async {
-    // On récupère les valeurs
+    // Récupération des données saisies.
     String email = _emailController.text;
     String mdp = _mdpController.text;
 
     try
     {
-      // Appeler DatabaseService
+      // Tentative de connexion via le service dédié.
       bool result = await _databaseService.connexion(email, mdp);
-      // Naviguer vers la page d'accueil
+      
+      // Si la connexion réussit, redirection vers la page d'accueil en remplaçant la page actuelle.
       if(result){
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MyHomePage()));
       }

@@ -4,18 +4,23 @@ import '../models/festival.dart';
 import '../models/manifestation.dart';
 import '../config.dart';
 
+/// Service gérant les interactions avec l'API (récupération de données, authentification).
 class DatabaseService {
-  // Singleton pattern
+  // Instance unique de la classe (Singleton) pour éviter de créer plusieurs connexions inutiles.
   static final DatabaseService _instance = DatabaseService._internal();
 
   factory DatabaseService() {
     return _instance;
   }
 
+  // Constructeur privé utilisé par le Singleton.
   DatabaseService._internal();
   
-  bool isLoggedIn = false; // Stockage de l'état de connexion
+  // Variable pour suivre si l'utilisateur est actuellement connecté.
+  bool isLoggedIn = false;
 
+  /// Récupère la liste de tous les festivals depuis l'API.
+  /// Retourne une liste d'objets [Festival].
   Future<List<Festival>> getFestivals() async {
     final url = Config.apiUrlFestivals;
     print('--- API REQUEST (getFestivals) ---');
@@ -41,6 +46,8 @@ class DatabaseService {
     }
   }
 
+  /// Récupère la liste des manifestations pour un festival donné (via son id).
+  /// Retourne une liste d'objets [Manifestation].
   Future<List<Manifestation>> getManifestations(int festivalId) async {
 
     
@@ -68,6 +75,8 @@ class DatabaseService {
     }
   }
 
+  /// Tente de connecter un utilisateur avec son email et mot de passe.
+  /// Retourne `true` si la connexion est réussie, sinon lève une erreur.
   Future<bool> connexion(String email, String mdp) async {
     final url = Config.apiUrlConnexion;
     print('--- API REQUEST (connexion) ---');
@@ -78,7 +87,9 @@ class DatabaseService {
         Uri.parse(url),
         headers:
         {
-          'Accept': 'application/json', // <--- LA LIGNE MAGIQUE
+          // Indique au serveur que l'application attend une réponse au format JSON.
+          // C'est nécessaire pour éviter des erreurs de format ou des redirections inattendues.
+          'Accept': 'application/json', 
         },
         body:
         {
@@ -103,6 +114,8 @@ class DatabaseService {
     }
   }
 
+  /// Inscrit un nouvel utilisateur avec les informations fournies.
+  /// Connecte automatiquement l'utilisateur si l'inscription réussit.
   Future<bool> inscription
   ({
     required String nom,
@@ -120,7 +133,8 @@ class DatabaseService {
         Uri.parse(url),
         headers:
         {
-          'Accept': 'application/json', // <--- LA LIGNE MAGIQUE
+          // Indique au serveur que nous attendons du JSON en réponse.
+          'Accept': 'application/json',
         },
         body:
         {
@@ -150,6 +164,7 @@ class DatabaseService {
     }
   }
 
+  /// Déconnecte l'utilisateur localement.
   void deconnexion() {
     isLoggedIn = false;
   }
