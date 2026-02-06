@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/festival.dart';
 import 'package:intl/intl.dart';
 import 'manifestations_page.dart';
+import 'ticket_selection_page.dart';
 
 class AfficherInfo extends StatelessWidget {
   final Festival festival;
@@ -125,6 +126,31 @@ class AfficherInfo extends StatelessWidget {
               ),
               icon: const Icon(Icons.list_alt),
               label: const Text("Détails des manifestations"),
+            ),
+
+            const SizedBox(height: 12),
+
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TicketSelectionPage(
+                      festival: festival,
+                    ),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.shopping_cart),
+              label: const Text("Acheter des billets"),
             ),
           ],
         ),
