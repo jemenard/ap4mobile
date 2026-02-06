@@ -25,15 +25,15 @@ class Festival {
       id: int.parse(data['Id_Festival'].toString()),
       annee: int.parse(data['annee'].toString()),
       theme: data['theme'],
+      location: data['adresse'] ?? "L'entre terre",
       startDate: data['date_debut'] is DateTime 
           ? data['date_debut'] 
           : DateTime.parse(data['date_debut'].toString()),
       endDate: data['date_fin'] is DateTime 
           ? data['date_fin'] 
           : DateTime.parse(data['date_fin'].toString()),
-      prix: double.parse(data['prix'].toString()),
       name: data['theme'],
-      location: data['adresse'] ?? "L'entre terre",
+      prix: double.parse(data['prix'].toString()),
     );
   }
 }

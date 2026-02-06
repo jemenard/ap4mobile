@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../main.dart';
+import 'connexionPage.dart';
 
 class InscriptionPage extends StatefulWidget {
   const InscriptionPage({super.key});
@@ -52,56 +53,157 @@ class _InscriptionPageState extends State<InscriptionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Inscription")),
-      // Utilisation d'un SingleChildScrollView pour éviter les débordements de pixels (overflow) 
-      // lorsque le clavier apparaît à l'écran.
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: _nomController,
-              decoration: const InputDecoration(
-                labelText: "Nom",
-                border: OutlineInputBorder(),
+      backgroundColor: const Color(0xFFF5F5F7), // Light grey background
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              const Icon(
+                Icons.person_add_alt_1_rounded,
+                size: 60,
+                color: Color(0xFF13293d),
               ),
-            ),
-            TextField(
-              controller: _prenomController,
-              decoration: const InputDecoration(
-                labelText: "Prénom",
-                border: OutlineInputBorder(),
+              const SizedBox(height: 16),
+              const Text(
+                "Créer un compte",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF13293d),
+                ),
               ),
-            ),
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: "Email",
-                border: OutlineInputBorder(),
+              const SizedBox(height: 8),
+              const Text(
+                "Rejoignez-nous pour profiter de tout les avantages",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
               ),
-            ),
-            TextField(
-              controller: _telController,
-              decoration: const InputDecoration(
-                labelText: "Téléphone",
-                border: OutlineInputBorder(),
+              const SizedBox(height: 32),
+
+              // Form
+              Card(
+                elevation: 4,
+                shadowColor: Colors.black12,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    children: [
+                      _buildTextField(
+                        controller: _nomController,
+                        label: "Nom",
+                        icon: Icons.person_outline,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        controller: _prenomController,
+                        label: "Prénom",
+                        icon: Icons.person_outline,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        controller: _emailController,
+                        label: "Email",
+                        icon: Icons.email_outlined,
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        controller: _telController,
+                        label: "Téléphone",
+                        icon: Icons.phone_outlined,
+                        keyboardType: TextInputType.phone,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        controller: _passController,
+                        label: "Mot de passe",
+                        icon: Icons.lock_outline,
+                        isObscure: true,
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _validerInscription,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF13293d),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            "Créer mon compte",
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-            TextField(
-              controller: _passController,
-              decoration: const InputDecoration(
-                labelText: "Mot de passe",
-                border: OutlineInputBorder(),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                   const Text("Déjà un compte ? "),
+                   GestureDetector(
+                     onTap: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ConnexionPage()),
+                        );
+                     },
+                     child: const Text(
+                       "Connectez-vous",
+                       style: TextStyle(
+                         color: Color(0xFF13293d),
+                         fontWeight: FontWeight.bold,
+                       ),
+                     ),
+                   )
+                ],
               ),
-              obscureText: true,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _validerInscription,
-              child: const Text("Créer mon compte"),
-            ),
-          ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool isObscure = false,
+    TextInputType? keyboardType,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: isObscure,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        filled: true,
+        fillColor: const Color(0xFFF5F5F7),
+        contentPadding: const EdgeInsets.symmetric(vertical: 16),
       ),
     );
   }

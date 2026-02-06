@@ -1,44 +1,37 @@
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../main.dart';
-import 'inscriptionPage.dart';
-import 'staffConnexionPage.dart';
 
-class ConnexionPage extends StatefulWidget {
-  const ConnexionPage({super.key});
+class StaffConnexionPage extends StatefulWidget {
+  const StaffConnexionPage({super.key});
 
   @override
-  State<ConnexionPage> createState() => _ConnexionPageState();
+  State<StaffConnexionPage> createState() => _StaffConnexionPageState();
 }
 
-class _ConnexionPageState extends State<ConnexionPage> {
-  // Contrôleurs pour récupérer le texte saisi par l'utilisateur dans les champs Email et Mot de passe.
+class _StaffConnexionPageState extends State<StaffConnexionPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _mdpController = TextEditingController();
   
   final DatabaseService _databaseService = DatabaseService();
 
-  /// Méthode déclenchée lors du clic sur le bouton "Se connecter".
-  void _tenterConnexion() async {
-    // Récupération des données saisies.
+  void _tenterConnexionStaff() async {
     String email = _emailController.text;
     String mdp = _mdpController.text;
 
-    try
-    {
-      // Tentative de connexion via le service dédié.
-      bool result = await _databaseService.connexion(email, mdp);
+    try {
+      bool result = await _databaseService.connexionStaff(email, mdp);
       
-      // Si la connexion réussit, redirection vers la page d'accueil en remplaçant la page actuelle.
-      if(result){
+      if(result && mounted){
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MyHomePage()));
       }
     }
-    catch (e) 
-    {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Échec : ${e.toString()}"))
-      );
+    catch (e) {
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Échec : ${e.toString()}"))
+        );
+      }
     }
   }
 
@@ -53,23 +46,39 @@ class _ConnexionPageState extends State<ConnexionPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Logo avec long press pour accès staff
-              GestureDetector(
-                onLongPress: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const StaffConnexionPage()),
-                  );
-                },
-                child: const Icon(
-                  Icons.music_note_rounded,
-                  size: 80,
-                  color: Color(0xFF13293d),
-                ),
+              // Logo Staff avec badge
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Icon(
+                    Icons.admin_panel_settings_rounded,
+                    size: 80,
+                    color: Color(0xFF13293d),
+                  ),
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        "STAFF",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               const Text(
-                "Bienvenue !",
+                "Connexion Staff",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 28,
@@ -79,7 +88,7 @@ class _ConnexionPageState extends State<ConnexionPage> {
               ),
               const SizedBox(height: 8),
               const Text(
-                "Connectez-vous pour continuer",
+                "Accès réservé au personnel",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
@@ -88,7 +97,7 @@ class _ConnexionPageState extends State<ConnexionPage> {
               ),
               const SizedBox(height: 32),
               
-              // Formulaire dans une Card
+              // Formulaire
               Card(
                 elevation: 4,
                 shadowColor: Colors.black12,
@@ -134,7 +143,7 @@ class _ConnexionPageState extends State<ConnexionPage> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: _tenterConnexion,
+                          onPressed: _tenterConnexionStaff,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF13293d),
                             foregroundColor: Colors.white,
@@ -154,26 +163,16 @@ class _ConnexionPageState extends State<ConnexionPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                   const Text("Pas encore de compte ? "),
-                   GestureDetector(
-                     onTap: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (context) => const InscriptionPage()),
-                        );
-                     },
-                     child: const Text(
-                       "Inscrivez-vous",
-                       style: TextStyle(
-                         color: Color(0xFF13293d),
-                         fontWeight: FontWeight.bold,
-                       ),
-                     ),
-                   )
-                ],
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Text(
+                  "← Retour",
+                  style: TextStyle(
+                    color: Color(0xFF13293d),
+                  ),
+                ),
               ),
             ],
           ),

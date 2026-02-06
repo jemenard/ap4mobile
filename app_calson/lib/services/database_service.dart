@@ -129,6 +129,15 @@ class DatabaseService {
     print('URL: $url');
     try 
     {
+      final bodyData = {
+        'nom': nom,
+        'prenom': prenom,
+        'email': email,
+        'telephone': telephone,
+        'mdp': mdp,
+      };
+      print('Sending Registration Data: $bodyData');
+
       final response = await http.post(
         Uri.parse(url),
         headers:
@@ -136,14 +145,7 @@ class DatabaseService {
           // Indique au serveur que nous attendons du JSON en réponse.
           'Accept': 'application/json',
         },
-        body:
-        {
-          'name': nom,
-          'prenom': prenom,
-          'email': email,
-          'telephone': telephone,
-          'password': mdp,
-        },
+        body: bodyData,
       );
       print('Status Code: ${response.statusCode}');
       if (response.statusCode == 201) {
@@ -156,6 +158,42 @@ class DatabaseService {
       }
 
       
+    } catch (e) {
+      print('!!! API Error !!! : $e');
+      rethrow;
+    } finally {
+      print('--- END API REQUEST ---');
+    }
+  }
+
+  /// Connexion pour le personnel staff avec endpoint dédié.
+  Future<bool> connexionStaff(String email, String mdp) async {
+    final url = Config.apiUrlConnexionStaff;
+    print('--- API REQUEST (connexionStaff) ---');
+    print('URL: $url');
+    try {
+      final bodyData = {
+        'email': email,
+        'password': mdp,
+      };
+      print('Sending Staff Login Data: $bodyData');
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Accept': 'application/json',
+        },
+        body: bodyData,
+      );
+      print('Status Code: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        print('Response Body: ${response.body}');
+        isLoggedIn = true;
+        return true;
+      } else {
+        print('Error Body: ${response.body}');
+        throw "Erreur serveur : ${response.statusCode}";
+      }
     } catch (e) {
       print('!!! API Error !!! : $e');
       rethrow;

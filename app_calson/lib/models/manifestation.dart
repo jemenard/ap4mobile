@@ -19,13 +19,13 @@ class Manifestation {
 
   factory Manifestation.fromMap(Map<String, dynamic> map) {
     return Manifestation(
-      id: int.parse(map['id'].toString()),
+      id: int.parse(map['Id_Manifestation'].toString()),
       titre: map['titre'],
       resume: map['resume'],
-      publicVise: map['publicVise'],
-      jaugeMax: map['jaugeMax'],
-      prix: map['prix'] ?? "Gratuit",
-      festivalId: int.parse(map['festivalId'].toString()),
+      publicVise: map['public_vise'],
+      jaugeMax: map['jauge_max'].toString(),
+      prix: map['prix']?.toString() ?? "Gratuit",
+      festivalId: int.parse(map['Id_Session']?.toString() ?? '0'),
     );
   }
 }
