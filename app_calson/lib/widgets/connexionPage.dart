@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
-import '../main.dart';
 import 'inscriptionPage.dart';
 import 'staffConnexionPage.dart';
 
@@ -26,16 +25,20 @@ class _ConnexionPageState extends State<ConnexionPage> {
 
     try
     {
+      print('Tentative de connexion pour : $email');
       // Tentative de connexion via le service dédié.
       bool result = await _databaseService.connexion(email, mdp);
+      print('Résultat connexion : $result');
       
-      // Si la connexion réussit, redirection vers la page d'accueil en remplaçant la page actuelle.
-      if(result){
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MyHomePage()));
+      // Si la connexion réussit, on ferme simplement la page pour revenir à l'accueil
+      if(result && mounted){
+        print('Connexion réussie, fermeture de la page...');
+        Navigator.pop(context);
       }
     }
     catch (e) 
     {
+      print('ERREUR lors de la connexion : $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Échec : ${e.toString()}"))
       );

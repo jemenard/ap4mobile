@@ -12,7 +12,17 @@ import 'widgets/scanner.dart';
 import 'widgets/connexionPage.dart';
 import 'widgets/user_tickets_page.dart';
 
-void main() {
+import 'package:intl/date_symbol_data_local.dart';
+
+void main() async {
+  print('=== APP STARTING ===');
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await initializeDateFormatting('fr_FR', null);
+    print('Date formatting initialized');
+  } catch (e) {
+    print('Failed to initialize date formatting: $e');
+  }
   runApp(const MyApp());
 }
 
@@ -72,6 +82,53 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Liste dynamique des destinations basée sur l'état de connexion/admin
+    final List<NavigationDestination> destinations = [
+      const NavigationDestination(
+        selectedIcon: Icon(Icons.home),
+        icon: Icon(Icons.home_outlined),
+        label: 'Accueil',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.music_note),
+        label: 'Festivals',
+      ),
+    ];
+
+    // Map pour convertir l'index de la barre vers l'index de l'IndexedStack
+    // Stack Index: 0:Accueil, 1:Festivals, 2:Tickets, 3:Scanner, 4:Paramètres
+    final Map<int, int> barToStack = {0: 0, 1: 1};
+
+    if (_databaseService.isLoggedIn) {
+      barToStack[destinations.length] = 2; // Tickets
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.confirmation_number_outlined),
+        label: 'Tickets',
+      ));
+    }
+
+    if (_databaseService.isAdmin) {
+      barToStack[destinations.length] = 3; // Scanner
+      destinations.add(const NavigationDestination(
+        icon: Icon(Icons.qr_code),
+        label: 'Scanner',
+      ));
+    }
+
+    // Paramètres est toujours le dernier élément de la barre
+    final int settingsBarIndex = destinations.length;
+    barToStack[settingsBarIndex] = 4;
+    destinations.add(const NavigationDestination(
+      icon: Icon(Icons.settings),
+      label: 'Paramètres',
+    ));
+
+    // Déterminer l'index sélectionné dans la barre à partir de currentIndex
+    int selectedBarIndex = 0;
+    barToStack.forEach((barIdx, stackIdx) {
+      if (stackIdx == currentIndex) selectedBarIndex = barIdx;
+    });
+
     return Scaffold(
       appBar: _buildAppBar(),
       body: IndexedStack(
@@ -85,43 +142,20 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _databaseService.isLoggedIn ? currentIndex : (currentIndex == 4 ? 2 : currentIndex),
+        selectedIndex: selectedBarIndex,
         onDestinationSelected: (value) {
-          int targetIndex = value;
-          if (!_databaseService.isLoggedIn) {
-            // Si l'utilisateur n'est pas connecté, le clic sur l'onglet "Tickets" (index 2 dans la barre)
-            // redirige vers l'onglet "Paramètres" (index 4) pour l'inviter à se connecter.
-            if (value == 2) targetIndex = 4;
+          int targetStackIndex = barToStack[value] ?? 0;
+          print('Navigation: BarIndex $value -> StackIndex $targetStackIndex');
+          
+          // Sécurité : si on n'est pas connecté et qu'on essaie d'aller sur Tickets/Scanner
+          // On redirige vers Paramètres
+          if (!_databaseService.isLoggedIn && (targetStackIndex == 2 || targetStackIndex == 3)) {
+            targetStackIndex = 4;
           }
-          setState(() => currentIndex = targetIndex);
+
+          setState(() => currentIndex = targetStackIndex);
         },
-        destinations: [
-          const NavigationDestination(
-            selectedIcon: Icon(Icons.home),
-            icon: Icon(Icons.home_outlined),
-            label: 'Accueil',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.music_note),
-            label: 'Festivals',
-          ),
-          if (_databaseService.isLoggedIn) ...[ 
-            const NavigationDestination(
-              icon: Icon(Icons.confirmation_number_outlined),
-              label: 'Tickets',
-            ),
-          ],
-          if (_databaseService.isAdmin) ...[ 
-            const NavigationDestination(
-              icon: Icon(Icons.qr_code),
-              label: 'Scanner',
-            ),
-          ],
-          const NavigationDestination(
-            icon: Icon(Icons.settings),
-            label: 'Paramètres',
-          ),
-        ],
+        destinations: destinations,
       ),
     );
   }
@@ -148,7 +182,10 @@ class _MyHomePageState extends State<MyHomePage> {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const ConnexionPage()),
-          );
+          ).then((_) {
+            print('Retour de ConnexionPage. LoggedIn: ${_databaseService.isLoggedIn}');
+            setState(() {}); // Rafraîchir pour afficher l'onglet Tickets
+          });
         }
       },
       tooltip: _databaseService.isLoggedIn ? "Se déconnecter" : "Se connecter",
@@ -349,7 +386,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   
 Widget _buildTicketPage() {
-  return const UserTicketsPage();
+  return UserTicketsPage(key: UniqueKey());
 }
 
 

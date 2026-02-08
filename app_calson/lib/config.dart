@@ -7,6 +7,7 @@ class Config {
   static const String apiUrlInscription = 'http://192.168.110.16:8000/api/inscription';
   static const String apiUrlReservations = 'http://192.168.110.16:8000/api/reservations';
   static const String apiUrlReserver = 'http://192.168.110.16:8000/api/reserver';
+  static const String apiUrlQrCode = 'http://192.168.110.16:8000/api/reservation';
   // Dev
   // static const String apiUrl = 'https://api.mon-festival.fr'; // Prod
 }
