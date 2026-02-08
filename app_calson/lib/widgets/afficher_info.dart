@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/festival.dart';
 import 'package:intl/intl.dart';
+import '../services/database_service.dart';
+import 'connexionPage.dart';
 import 'manifestations_page.dart';
 import 'ticket_selection_page.dart';
 
@@ -131,15 +133,71 @@ class AfficherInfo extends StatelessWidget {
             const SizedBox(height: 12),
 
             ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => TicketSelectionPage(
-                      festival: festival,
+              onPressed: () async {
+                final dbService = DatabaseService();
+                
+                // 1. Vérifier l'authentification
+                if (!dbService.isLoggedIn) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ConnexionPage()),
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Vous devez être connecté pour acheter des billets"),
+                      backgroundColor: Colors.orange,
                     ),
-                  ),
+                  );
+                  return;
+                }
+
+                // 2. Afficher un indicateur de chargement
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => const Center(child: CircularProgressIndicator()),
                 );
+
+                try {
+                  // 3. Vérifier la limite de 4 billets "Pass Festival" (sans manifestation)
+                  int count = await dbService.getTicketsCount(festival.id);
+                  
+                  if (!context.mounted) return;
+                  Navigator.pop(context); // Fermer le loader
+
+                  if (count >= 4) {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text("Limite atteinte"),
+                        content: const Text("Vous avez déjà réservé le maximum de 4 billets autorisés pour ce festival."),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text("OK"),
+                          ),
+                        ],
+                      ),
+                    );
+                  } else {
+                    // 4. Naviguer vers la sélection de billets
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => TicketSelectionPage(
+                          festival: festival,
+                          existingTicketsCount: count,
+                        ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (!context.mounted) return;
+                  Navigator.pop(context); // Fermer le loader
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Erreur lors de la vérification : $e")),
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 50),

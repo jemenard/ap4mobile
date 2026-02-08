@@ -10,6 +10,7 @@ import 'widgets/home_appbar.dart';
 import 'package:flutter/services.dart';
 import 'widgets/scanner.dart';
 import 'widgets/connexionPage.dart';
+import 'widgets/user_tickets_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -25,12 +26,12 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF13293d), // Deep Blue from new logo
-          secondary: const Color(0xFF2a4e6c), // Lighter Blue
+          seedColor: const Color(0xFF13293d), 
+          secondary: const Color(0xFF2a4e6c),
           brightness: Brightness.light,
         ),
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF5F5F7), // Light grey background
+        scaffoldBackgroundColor: const Color(0xFFF5F5F7),
       ),
       home: const MyHomePage(),
     );
@@ -104,11 +105,13 @@ class _MyHomePageState extends State<MyHomePage> {
             icon: Icon(Icons.music_note),
             label: 'Festivals',
           ),
-          if (_databaseService.isLoggedIn) ...[
+          if (_databaseService.isLoggedIn) ...[ 
             const NavigationDestination(
               icon: Icon(Icons.confirmation_number_outlined),
               label: 'Tickets',
             ),
+          ],
+          if (_databaseService.isAdmin) ...[ 
             const NavigationDestination(
               icon: Icon(Icons.qr_code),
               label: 'Scanner',
@@ -346,13 +349,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   
 Widget _buildTicketPage() {
-  return Center(
-    child: Column(
-      children: [
-        
-      ],
-    ),
-  );
+  return const UserTicketsPage();
 }
 
 

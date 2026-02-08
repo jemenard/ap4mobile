@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/festival.dart';
+import '../models/manifestation.dart';
+import '../services/database_service.dart';
 
 class PaymentPage extends StatefulWidget {
   final Festival festival;
+  final Manifestation? manifestation;
   final int fullPriceCount;
   final int studentCount;
   final int childCount;
@@ -12,6 +15,7 @@ class PaymentPage extends StatefulWidget {
   const PaymentPage({
     super.key,
     required this.festival,
+    this.manifestation,
     required this.fullPriceCount,
     required this.studentCount,
     required this.childCount,
@@ -44,35 +48,124 @@ class _PaymentPageState extends State<PaymentPage> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isProcessing = true);
 
-      // Simulation d'un traitement de paiement
-      await Future.delayed(const Duration(seconds: 2));
+      final dbService = DatabaseService();
+      bool allSuccessful = true;
+      int successCount = 0;
+      int totalToReserve = widget.fullPriceCount + widget.studentCount + widget.childCount;
 
-      setState(() => _isProcessing = false);
+      try {
+        // Obtenir le prix de base
+        double basePrice = widget.festival.prix;
+        if (widget.manifestation != null) {
+          final prixStr = widget.manifestation!.prix.replaceAll(' €', '').replaceAll(',', '.');
+          basePrice = double.tryParse(prixStr) ?? 0.0;
+        }
 
-      if (mounted) {
-        // Afficher un message de succès
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            icon: const Icon(Icons.check_circle, color: Colors.green, size: 64),
-            title: const Text("Paiement réussi !"),
-            content: Text(
-              "Votre commande de ${widget.fullPriceCount + widget.studentCount + widget.childCount} billet(s) a été confirmée.",
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  // Retour à la page d'accueil
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                },
-                child: const Text("Retour à l'accueil"),
-              ),
-            ],
-          ),
-        );
+        // 1. Réserver les billets Plein Tarif
+        for (int i = 0; i < widget.fullPriceCount; i++) {
+          bool ok = await dbService.reserverTicket(
+            festivalId: widget.festival.id,
+            manifestationId: widget.manifestation?.id,
+            type: "Plein tarif",
+            prix: basePrice,
+          );
+          if (ok) successCount++; else allSuccessful = false;
+        }
+
+        // 2. Réserver les billets Étudiant
+        for (int i = 0; i < widget.studentCount; i++) {
+          bool ok = await dbService.reserverTicket(
+            festivalId: widget.festival.id,
+            manifestationId: widget.manifestation?.id,
+            type: "Tarif étudiant",
+            prix: basePrice * 0.80,
+          );
+          if (ok) successCount++; else allSuccessful = false;
+        }
+
+        // 3. Réserver les billets Enfant
+        for (int i = 0; i < widget.childCount; i++) {
+          bool ok = await dbService.reserverTicket(
+            festivalId: widget.festival.id,
+            manifestationId: widget.manifestation?.id,
+            type: "Enfant - 10 ans",
+            prix: basePrice * 0.70,
+          );
+          if (ok) successCount++; else allSuccessful = false;
+        }
+
+        setState(() => _isProcessing = false);
+
+        if (mounted) {
+          if (allSuccessful && successCount == totalToReserve) {
+            _showSuccessDialog();
+          } else if (successCount > 0) {
+            _showPartialSuccessDialog(successCount, totalToReserve);
+          } else {
+            _showErrorDialog("Échec de la réservation. Veuillez réessayer.");
+          }
+        }
+      } catch (e) {
+        setState(() => _isProcessing = false);
+        if (mounted) _showErrorDialog("Une erreur est survenue : $e");
       }
     }
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.check_circle, color: Colors.green, size: 64),
+        title: const Text("Paiement réussi !"),
+        content: Text(
+          "Vos ${widget.fullPriceCount + widget.studentCount + widget.childCount} billet(s) ont été réservés avec succès.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+            child: const Text("Retour à l'accueil"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPartialSuccessDialog(int success, int total) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.warning, color: Colors.orange, size: 64),
+        title: const Text("Paiement partiel"),
+        content: Text(
+          "Seulement $success sur $total billets ont pu être réservés. Veuillez contacter le support.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.error, color: Colors.red, size: 64),
+        title: const Text("Erreur"),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -105,31 +198,55 @@ class _PaymentPageState extends State<PaymentPage> {
                       ),
                       const Divider(height: 24),
                       Text(
-                        widget.festival.name,
+                        widget.manifestation?.titre ?? widget.festival.name,
                         style: const TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (widget.manifestation != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          "Festival : ${widget.festival.name}",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
-                      if (widget.fullPriceCount > 0)
-                        _buildTicketSummaryRow(
-                          "Tarif plein",
-                          widget.fullPriceCount,
-                          widget.festival.prix,
-                        ),
-                      if (widget.studentCount > 0)
-                        _buildTicketSummaryRow(
-                          "Tarif étudiant",
-                          widget.studentCount,
-                          widget.festival.prix * 0.80,
-                        ),
-                      if (widget.childCount > 0)
-                        _buildTicketSummaryRow(
-                          "Enfant - 10 ans",
-                          widget.childCount,
-                          widget.festival.prix * 0.70,
-                        ),
+                      
+                      // Calcul du prix de base (identique à TicketSelectionPage)
+                      (() {
+                        double basePrice = widget.festival.prix;
+                        if (widget.manifestation != null) {
+                          final prixStr = widget.manifestation!.prix.replaceAll(' €', '').replaceAll(',', '.');
+                          basePrice = double.tryParse(prixStr) ?? 0.0;
+                        }
+                        
+                        return Column(
+                          children: [
+                            if (widget.fullPriceCount > 0)
+                              _buildTicketSummaryRow(
+                                "Tarif plein",
+                                widget.fullPriceCount,
+                                basePrice,
+                              ),
+                            if (widget.studentCount > 0)
+                              _buildTicketSummaryRow(
+                                "Tarif étudiant",
+                                widget.studentCount,
+                                basePrice * 0.80,
+                              ),
+                            if (widget.childCount > 0)
+                              _buildTicketSummaryRow(
+                                "Enfant - 10 ans",
+                                widget.childCount,
+                                basePrice * 0.70,
+                              ),
+                          ],
+                        );
+                      })(),
                       const Divider(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,

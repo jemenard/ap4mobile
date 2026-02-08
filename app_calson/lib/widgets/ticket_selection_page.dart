@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
 import '../models/festival.dart';
+import '../models/manifestation.dart';
 import 'payment_page.dart';
 
 class TicketSelectionPage extends StatefulWidget {
   final Festival festival;
+  final Manifestation? manifestation; // Optionnel : si présent, on achète pour cette manif
+  final int existingTicketsCount; // Nombre de billets déjà possédés pour ce festival
 
-  const TicketSelectionPage({super.key, required this.festival});
+  const TicketSelectionPage({
+    super.key, 
+    required this.festival, 
+    this.manifestation,
+    this.existingTicketsCount = 0,
+  });
 
   @override
   State<TicketSelectionPage> createState() => _TicketSelectionPageState();
@@ -16,9 +24,18 @@ class _TicketSelectionPageState extends State<TicketSelectionPage> {
   int studentCount = 0;
   int childCount = 0;
 
-  double get fullPrice => widget.festival.prix;
-  double get studentPrice => widget.festival.prix * 0.80;
-  double get childPrice => widget.festival.prix * 0.70;
+  double get basePrice {
+    if (widget.manifestation != null) {
+      // Nettoyer et parser le prix de la manifestation
+      final prixStr = widget.manifestation!.prix.replaceAll(' €', '').replaceAll(',', '.');
+      return double.tryParse(prixStr) ?? 0.0;
+    }
+    return widget.festival.prix;
+  }
+
+  double get fullPrice => basePrice;
+  double get studentPrice => basePrice * 0.80;
+  double get childPrice => basePrice * 0.70;
 
   double get totalPrice {
     return (fullPriceCount * fullPrice) +
@@ -39,7 +56,7 @@ class _TicketSelectionPageState extends State<TicketSelectionPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // En-tête du festival
+            // En-tête du festival ou de la manifestation
             Card(
               elevation: 4,
               child: Padding(
@@ -48,15 +65,26 @@ class _TicketSelectionPageState extends State<TicketSelectionPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.festival.name,
+                      widget.manifestation?.titre ?? widget.festival.name,
                       style: const TextStyle(
-                        fontSize: 24,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    if (widget.manifestation != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        "Dans le cadre de : ${widget.festival.name}",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Text(
-                      "${widget.festival.location}",
+                      widget.manifestation?.session?.lieu?.nomLieu ?? widget.festival.location,
                       style: TextStyle(
                         fontSize: 16,
                         color: Colors.grey[600],
@@ -77,10 +105,11 @@ class _TicketSelectionPageState extends State<TicketSelectionPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              "Maximum 4 billets par catégorie",
+              "Vous avez déjà ${widget.existingTicketsCount} billet(s) pour cet événement. Total maximum autorisé : 4.",
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[600],
+                color: Colors.blue[800],
+                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 16),
@@ -91,7 +120,7 @@ class _TicketSelectionPageState extends State<TicketSelectionPage> {
               price: fullPrice,
               count: fullPriceCount,
               onIncrement: () {
-                if (fullPriceCount < 4) {
+                if (totalTickets + widget.existingTicketsCount < 4) {
                   setState(() => fullPriceCount++);
                 }
               },
@@ -102,6 +131,7 @@ class _TicketSelectionPageState extends State<TicketSelectionPage> {
               },
               icon: Icons.person,
               color: Colors.blue,
+              maxReached: (totalTickets + widget.existingTicketsCount >= 4),
             ),
 
             const SizedBox(height: 12),
@@ -113,7 +143,7 @@ class _TicketSelectionPageState extends State<TicketSelectionPage> {
               price: studentPrice,
               count: studentCount,
               onIncrement: () {
-                if (studentCount < 4) {
+                if (totalTickets + widget.existingTicketsCount < 4) {
                   setState(() => studentCount++);
                 }
               },
@@ -124,6 +154,7 @@ class _TicketSelectionPageState extends State<TicketSelectionPage> {
               },
               icon: Icons.school,
               color: Colors.green,
+              maxReached: (totalTickets + widget.existingTicketsCount >= 4),
             ),
 
             const SizedBox(height: 12),
@@ -135,7 +166,7 @@ class _TicketSelectionPageState extends State<TicketSelectionPage> {
               price: childPrice,
               count: childCount,
               onIncrement: () {
-                if (childCount < 4) {
+                if (totalTickets + widget.existingTicketsCount < 4) {
                   setState(() => childCount++);
                 }
               },
@@ -146,6 +177,7 @@ class _TicketSelectionPageState extends State<TicketSelectionPage> {
               },
               icon: Icons.child_care,
               color: Colors.orange,
+              maxReached: (totalTickets + widget.existingTicketsCount >= 4),
             ),
 
             const SizedBox(height: 32),
@@ -217,6 +249,7 @@ class _TicketSelectionPageState extends State<TicketSelectionPage> {
                           MaterialPageRoute(
                             builder: (context) => PaymentPage(
                               festival: widget.festival,
+                              manifestation: widget.manifestation,
                               fullPriceCount: fullPriceCount,
                               studentCount: studentCount,
                               childCount: childCount,
@@ -253,6 +286,7 @@ class _TicketSelectionPageState extends State<TicketSelectionPage> {
     required VoidCallback onDecrement,
     required IconData icon,
     required Color color,
+    required bool maxReached,
   }) {
     return Card(
       elevation: 2,
@@ -330,7 +364,7 @@ class _TicketSelectionPageState extends State<TicketSelectionPage> {
                     ),
                   ),
                   IconButton(
-                    onPressed: count < 4 ? onIncrement : null,
+                    onPressed: !maxReached ? onIncrement : null,
                     icon: const Icon(Icons.add),
                     color: color,
                   ),

@@ -46,7 +46,7 @@ class ManifestationsPage extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => ManifestationDetailsPage(manifestation: manifestation),
+                                  builder: (context) => ManifestationDetailsPage(manifestationId: manifestation.id),
                                 ),
                               );
                             },
