@@ -411,26 +411,27 @@ class DatabaseService {
     }
 
     try {
-      // On prépare les données. Selon tes règles Laravel "required", 
-      // on envoie les deux champs mais l'un sera vide si c'est l'autre qui est visé.
       final bodyData = {
-        'Id_Utilisateur': userId.toString(),
-        'id_festival': manifestationId == null ? festivalId.toString() : "",
-        'Id_Manifestation': manifestationId?.toString() ?? "",
+        'Id_Utilisateur': userId,
+        'id_festival': manifestationId == null ? festivalId : null,
+        'Id_Manifestation': manifestationId,
         'mode_obtention': 'en_ligne',
+        // Note: type_billet et prix_paye ne sont pas dans ton snippet PHP
+        // mais on les laisse s'ils sont gérés par le modèle Reservation
         'type_billet': type,
-        'prix_paye': prix.toString(),
+        'prix_paye': prix,
       };
       
-      print('Données envoyées : $bodyData');
+      print('Données envoyées (JSON revisité) : $bodyData');
 
       final response = await http.post(
         Uri.parse(url),
         headers: {
           'Accept': 'application/json',
+          'Content-Type': 'application/json',
           if (_token != null) 'Authorization': 'Bearer $_token',
         },
-        body: bodyData,
+        body: jsonEncode(bodyData),
       );
 
       print('Status Code: ${response.statusCode}');
