@@ -143,19 +143,47 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedBarIndex,
-        onDestinationSelected: (value) {
+        onDestinationSelected: (value) async {
           int targetStackIndex = barToStack[value] ?? 0;
           print('Navigation: BarIndex $value -> StackIndex $targetStackIndex');
           
+          // Vérification du festival actif pour le scanner (index 3)
+          if (targetStackIndex == 3) {
+            bool active = await _databaseService.isFestivalActive();
+            if (!active && mounted) {
+              _showNoFestivalDialog();
+              return; // Annule la navigation
+            }
+          }
+
           // Sécurité : si on n'est pas connecté et qu'on essaie d'aller sur Tickets/Scanner
           // On redirige vers Paramètres
           if (!_databaseService.isLoggedIn && (targetStackIndex == 2 || targetStackIndex == 3)) {
             targetStackIndex = 4;
           }
 
-          setState(() => currentIndex = targetStackIndex);
+          if (mounted) {
+            setState(() => currentIndex = targetStackIndex);
+          }
         },
         destinations: destinations,
+      ),
+    );
+  }
+
+  /// Affiche une pop-up d'erreur si aucun festival n'est en cours.
+  void _showNoFestivalDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Accès refusé"),
+        content: const Text("Aucun festival en cours"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
       ),
     );
   }
@@ -405,6 +433,15 @@ Widget _buildscannerPage() {
         ElevatedButton.icon(
           onPressed: () async 
           {
+            // Double vérification par sécurité
+            bool active = await _databaseService.isFestivalActive();
+            if (!active && mounted) {
+              _showNoFestivalDialog();
+              return;
+            }
+
+            if (!mounted) return;
+            
             final String? result = await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const Scanner()),

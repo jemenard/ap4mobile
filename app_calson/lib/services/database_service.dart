@@ -56,6 +56,21 @@ class DatabaseService {
     }
   }
 
+  /// Vérifie s'il y a au moins un festival en cours à l'instant T.
+  Future<bool> isFestivalActive() async {
+    try {
+      final festivals = await getFestivals();
+      final now = DateTime.now();
+      return festivals.any((f) => 
+        (f.startDate.isBefore(now) || f.startDate.isAtSameMomentAs(now)) && 
+        (f.endDate.isAfter(now) || f.endDate.isAtSameMomentAs(now))
+      );
+    } catch (e) {
+      print('Erreur lors de la vérification du festival actif: $e');
+      return false;
+    }
+  }
+
   /// Récupère la liste des manifestations pour un festival donné (via son id).
   /// Retourne une liste d'objets [Manifestation].
   Future<List<Manifestation>> getManifestations(int festivalId) async {
