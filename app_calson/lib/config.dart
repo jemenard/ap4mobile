@@ -11,6 +11,8 @@ class Config {
   static const String apiUrlSendEmail = 'http://192.168.110.16:8000/api/send_email';
   static const String apiUrlNews = 'http://192.168.110.16:8000/api/actualites';
   static const String apiUrlNewsDetail = 'http://192.168.110.16:8000/api/actualite';
+  static const String apiUrlStaff = 'http://192.168.110.16:8000/api/staff';
+  static const String apiUrlCommentaires = 'http://192.168.110.16:8000/api/manifestation';
 
   /// Vérifie si une URL scannée est autorisée (whitelist)
   static bool isUrlAllowed(String url) {

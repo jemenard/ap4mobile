@@ -57,6 +57,15 @@ class Ticket {
       festivalId ??= int.tryParse(festival['id']?.toString() ?? "");
     }
 
+    // Extraction du statut depuis l'objet 'statut' (colonnes Id_Statut, etat)
+    final statutData = map['statut'];
+    String labelStatut = "Inconnu";
+    if (statutData is Map) {
+      labelStatut = statutData['etat']?.toString() ?? "Inconnu";
+    } else {
+      labelStatut = map['etat']?.toString() ?? map['libelle_statut']?.toString() ?? "Inconnu";
+    }
+
     return Ticket(
       id: int.parse(map['Id_Reservation'].toString()),
       festivalId: festivalId,
@@ -65,12 +74,11 @@ class Ticket {
       date: date,
       location: location,
       price: double.tryParse((map['prix_payer'] ?? map['prix_paye'] ?? map['Prix_Paye'] ?? 0).toString()) ?? 0.0,
-      type: map['statut']?.toString() ?? map['libelle_statut']?.toString() ?? map['type_billet'] ?? map['Type_Billet'] ?? map['type'] ?? "Inconnu",
+      type: labelStatut,
       isPass: isPass,
       isCancelled: map['Id_Statut']?.toString() == '0' || 
                    map['id_statut']?.toString() == '0' ||
-                   map['statut']?.toString().toLowerCase().contains('annulé') == true ||
-                   map['libelle_statut']?.toString().toLowerCase().contains('annulé') == true ||
+                   labelStatut.toLowerCase().contains('annulé') == true ||
                    map['is_cancelled'] == 1 || 
                    map['is_cancelled'] == true,
     );

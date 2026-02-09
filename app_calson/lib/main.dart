@@ -82,7 +82,7 @@ class _MyHomePageState extends State<MyHomePage> {
     // Stack Index convention: 0:Accueil, 1:Festivals, 2:Tickets, 3:Scanner, 4:Paramètres
     final Map<int, int> barToStack = {0: 0, 1: 1};
 
-    if (_databaseService.isLoggedIn) {
+    if (_databaseService.isLoggedIn && !_databaseService.isAdmin) {
       barToStack[destinations.length] = 2; // Accès aux tickets
       destinations.add(const NavigationDestination(
         icon: Icon(Icons.confirmation_number_outlined),

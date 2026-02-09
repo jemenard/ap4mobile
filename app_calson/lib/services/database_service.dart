@@ -4,6 +4,7 @@ import '../models/festival.dart';
 import '../models/manifestation.dart';
 import '../models/ticket.dart';
 import '../models/news.dart';
+import '../models/comment.dart';
 import '../config.dart';
 
 /// Service central gérant les communications avec l'API backend.
@@ -27,28 +28,75 @@ class DatabaseService {
   String? _token;
 
   /// Récupère la liste des festivals actifs/futurs.
+  /// Si l'utilisateur est Staff, on ne récupère que ceux qui lui sont assignés.
   Future<List<Festival>> getFestivals() async {
+    print('DatabaseService.getFestivals: START (isLoggedIn=$isLoggedIn, isAdmin=$isAdmin, userId=$userId)');
     try {
-      final response = await http.get(Uri.parse(Config.apiUrlFestivals));
+      String url = Config.apiUrlFestivals;
+      bool useStaffEndpoint = false;
+      
+      // Si Staff connecté, on utilise EXCLUSIVEMENT l'endpoint staff
+      if (isAdmin) {
+        if (userId == null) {
+          print('DatabaseService.getFestivals: isAdmin=true mais userId=null -> retour []');
+          return []; 
+        }
+        url = "${Config.apiUrlStaff}/$userId/festivals";
+        useStaffEndpoint = true;
+      }
+
+      print('DatabaseService.getFestivals: Requesting URL=$url');
+      final response = await http.get(Uri.parse(url));
+      print('DatabaseService.getFestivals: URL=$url, StatusCode=${response.statusCode}');
       
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
-        final List<dynamic> body = jsonResponse['data'];
+        // print('DatabaseService.getFestivals: ResponseBody=${response.body}');
         
-        final festivals = body.map((item) => Festival.fromMap(item)).toList();
+        // La structure peut varier : json['data'], json['festivals'], ou json directement
+        dynamic rawData = jsonResponse['data'] ?? jsonResponse['festivals'] ?? jsonResponse;
         
-        // Filtrage : on ne garde que les festivals qui ne sont pas encore terminés
+        List<dynamic> body = [];
+        if (rawData is List) {
+          body = rawData;
+        } else if (rawData is Map && rawData.containsKey('festivals') && rawData['festivals'] is List) {
+          body = rawData['festivals'];
+        } else if (rawData is Map && rawData.containsKey('data') && rawData['data'] is List) {
+          body = rawData['data'];
+        }
+
+        final festivals = body.map((item) {
+          // Si Laravel renvoie une relation Many-to-Many, le festival peut être dans item['festival']
+          if (item is Map) {
+            final Map<String, dynamic> data = Map<String, dynamic>.from(
+              item.containsKey('festival') ? item['festival'] : item
+            );
+            return Festival.fromMap(data);
+          }
+          return null;
+        }).whereType<Festival>().toList();
+        
+        print('DatabaseService.getFestivals: Found ${festivals.length} festivals before temporal filtering');
+
+        // Filtrage temporel
         final today = DateTime.now();
         final startOfToday = DateTime(today.year, today.month, today.day);
         
-        return festivals.where((f) => 
+        final filtered = festivals.where((f) => 
           f.endDate.isAfter(startOfToday) || f.endDate.isAtSameMomentAs(startOfToday)
         ).toList();
+        
+        print('DatabaseService.getFestivals: Returning ${filtered.length} festivals');
+        return filtered;
+      } else if (useStaffEndpoint && (response.statusCode == 404 || response.statusCode == 200)) {
+        print('DatabaseService.getFestivals: Staff endpoint returned empty (404/200)');
+        return [];
       } else {
-        throw "Erreur serveur (${response.statusCode})";
+        throw "Erreur serveur (${response.statusCode}) pour l'URL: $url";
       }
     } catch (e) {
-      print('DatabaseService.getFestivals Error: $e');
+      print('DatabaseService.getFestivals: ERROR: $e');
+      if (isAdmin) return [];
       rethrow;
     }
   }
@@ -107,6 +155,30 @@ class DatabaseService {
     }
   }
 
+  /// Tente de trouver un identifiant (Staff ou Utilisateur) dans une Map, récursivement.
+  int? _findId(dynamic data) {
+    if (data == null) return null;
+    if (data is Map) {
+      // Priorité aux clés Staff
+      final rawId = data['Id_Staff'] ?? data['id_staff'] ?? 
+                    data['Id_Utilisateur'] ?? data['id_utilisateur'] ?? 
+                    data['id'];
+      if (rawId != null) return int.tryParse(rawId.toString());
+      
+      // Sinon on cherche dans les sous-objets (ex: 'user', 'data', 'staff')
+      for (var value in data.values) {
+        final found = _findId(value);
+        if (found != null) return found;
+      }
+    } else if (data is List) {
+      for (var item in data) {
+        final found = _findId(item);
+        if (found != null) return found;
+      }
+    }
+    return null;
+  }
+
   /// Authentification de l'utilisateur.
   /// NOTE: En production, utilisez impérativement HTTPS pour protéger les identifiants.
   Future<bool> connexion(String email, String mdp) async {
@@ -118,24 +190,33 @@ class DatabaseService {
       );
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> json = jsonDecode(response.body);
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        print('DatabaseService: Connexion (User) ResponseBody=${response.body}');
         
-        // Extraction de l'ID utilisateur (gestion de plusieurs formats possibles de l'API)
-        final userData = json['user'] ?? json['data'] ?? json;
-        userId = int.tryParse((userData['Id_Utilisateur'] ?? userData['id']).toString());
+        userId = _findId(jsonResponse);
         
-        // Récupération du Bearer Token pour les requêtes authentifiées suivantes
-        if (json.containsKey('token')) {
-          _token = json['token'].toString();
+        // Récupération du Bearer Token
+        if (jsonResponse.containsKey('token')) {
+          _token = jsonResponse['token'].toString();
         }
 
         if (userId != null) {
+          final userData = jsonResponse['user'] ?? jsonResponse['data'] ?? jsonResponse;
           userNom = userData['nom']?.toString() ?? userData['Nom']?.toString();
           userPrenom = userData['prenom']?.toString() ?? userData['Prenom']?.toString();
           userEmail = userData['email']?.toString() ?? userData['Email']?.toString() ?? email;
           
           isLoggedIn = true;
-          isAdmin = false; 
+          
+          // Détection automatique du rôle Staff/Admin
+          final roleVal = userData['role'] ?? userData['Role'];
+          if (roleVal != null) {
+            int? role = int.tryParse(roleVal.toString());
+            isAdmin = (role == 1 || role == 3);
+          } else {
+            isAdmin = false;
+          }
+          print('DatabaseService: Connexion réussie, userId=$userId, isAdmin=$isAdmin');
           return true;
         }
         return false;
@@ -202,21 +283,26 @@ class DatabaseService {
       );
 
       if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
         
-        if (json.containsKey('data') && json['data']['Id_Utilisateur'] != null) {
-          userId = int.tryParse(json['data']['Id_Utilisateur'].toString());
-        }
-
-        if (json.containsKey('data')) {
-          final userData = json['data'];
-          userNom = userData['nom']?.toString() ?? userData['Nom']?.toString();
-          userPrenom = userData['prenom']?.toString() ?? userData['Prenom']?.toString();
-          userEmail = userData['email']?.toString() ?? userData['Email']?.toString() ?? email;
-        }
-
+        isAdmin = true; // Forcé dès le début du succès
         isLoggedIn = true;
-        isAdmin = true;
+        userId = _findId(jsonResponse);
+        
+        print('DatabaseService: Connexion Staff réussie, userId=$userId, isAdmin=$isAdmin');
+        
+        // On cherche les données utilisateur pour le nom/prenom/email
+        final userData = jsonResponse['user'] ?? jsonResponse['data'] ?? jsonResponse['staff'] ?? jsonResponse;
+        
+        // Récupération du token si présent
+        if (jsonResponse.containsKey('token')) {
+          _token = jsonResponse['token'].toString();
+        }
+
+        userNom = userData['nom']?.toString() ?? userData['Nom']?.toString();
+        userPrenom = userData['prenom']?.toString() ?? userData['Prenom']?.toString();
+        userEmail = userData['email']?.toString() ?? userData['Email']?.toString() ?? email;
+
         return true;
       } else {
         throw _handleApiError(response);
@@ -431,6 +517,27 @@ class DatabaseService {
     } catch (e) {
       print('DatabaseService.getNewsDetail Error: $e');
       return null;
+    }
+  }
+
+  /// Récupère la liste des commentaires pour une manifestation.
+  Future<List<Comment>> getCommentaires(int manifestationId) async {
+    final url = "${Config.apiUrlCommentaires}/$manifestationId/commentaires";
+    try {
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        final List<dynamic> body = jsonResponse['data'];
+        return body.map((item) => Comment.fromMap(item)).toList();
+      } else if (response.statusCode == 404) {
+        return []; // Pas de commentaires trouvés
+      } else {
+        throw "Erreur récupération commentaires (${response.statusCode})";
+      }
+    } catch (e) {
+      print('DatabaseService.getCommentaires Error: $e');
+      return [];
     }
   }
 

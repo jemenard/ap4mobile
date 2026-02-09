@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/manifestation.dart';
 import '../models/festival.dart';
+import '../models/comment.dart';
 import '../services/database_service.dart';
 import 'connexionPage.dart';
 import 'ticket_selection_page.dart';
@@ -89,6 +90,8 @@ class _ManifestationDetailsPageState extends State<ManifestationDetailsPage> {
                 _buildInfoGrid(manifestation),
                 const SizedBox(height: 32),
                 _buildDescriptionSection(manifestation),
+                const SizedBox(height: 32),
+                _buildCommentsSection(manifestation),
                 const SizedBox(height: 40),
                 _buildBookingButton(manifestation),
               ],
@@ -229,6 +232,96 @@ class _ManifestationDetailsPageState extends State<ManifestationDetailsPage> {
           elevation: 2,
         ),
         child: const Text("Réserver", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  Widget _buildCommentsSection(Manifestation manifestation) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Avis des festivaliers",
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        FutureBuilder<List<Comment>>(
+          future: _databaseService.getCommentaires(manifestation.id),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: Padding(
+                padding: EdgeInsets.all(20.0),
+                child: CircularProgressIndicator(),
+              ));
+            }
+
+            if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.message_outlined, color: Colors.grey),
+                    const SizedBox(width: 12),
+                    Text("Aucun avis pour le moment.", style: TextStyle(color: Colors.grey)),
+                  ],
+                ),
+              );
+            }
+
+            final comments = snapshot.data!;
+            return Column(
+              children: comments.map((comment) => _buildCommentCard(comment)).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCommentCard(Comment comment) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                comment.userFullName,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              Row(
+                children: List.generate(5, (index) {
+                  final int rating = int.tryParse(comment.note) ?? 0;
+                  return Icon(
+                    index < rating ? Icons.star : Icons.star_border,
+                    size: 16,
+                    color: Colors.orange,
+                  );
+                }),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            comment.commentaire,
+            style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.4),
+          ),
+        ],
       ),
     );
   }
