@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'widgets/scanner.dart';
 import 'widgets/connexionPage.dart';
 import 'widgets/user_tickets_page.dart';
+import 'config.dart';
 
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -57,24 +58,7 @@ class MyHomePage extends StatefulWidget {
 
 
 
-// Liste des chemins d'accès aux images affichées dans le carousel d'accueil.
-final List<String> images = [
-  'assets/images/afficheLogo.png',
-  'assets/images/afficheNoel.jpg',
-  'assets/images/afficheNoel.jpg',
-  //'assets/images/usseewa.jpg',
-];
-
-final List<Widget> carouselItems = images.map((path) {
-  return Container(
-    margin: const EdgeInsets.all(6.0),
-    decoration: BoxDecoration(borderRadius: BorderRadius.circular(8.0)),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(8.0),
-      child: Image.asset(path, fit: BoxFit.cover, width: double.infinity),
-    ),
-  );
-}).toList();
+// Les images du carousel sont désormais récupérées dynamiquement depuis l'API.
 
 class _MyHomePageState extends State<MyHomePage> {
   int currentIndex = 0;
@@ -321,9 +305,69 @@ class _MyHomePageState extends State<MyHomePage> {
             title: "En Vedette",
             onMoreTap: () => setState(() => currentIndex = 1), // Go to list
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: CarouselWidget(carouselItems: carouselItems),
+          FutureBuilder<List<Festival>>(
+            future: _databaseService.getFestivals(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox(
+                  height: 200,
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              
+              if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+                return const SizedBox.shrink();
+              }
+
+              final festivals = snapshot.data!;
+              final carouselItems = festivals.map((festival) {
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AfficherInfo(festival: festival),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.all(6.0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12.0),
+                      child: festival.urlLogo != null && festival.urlLogo!.isNotEmpty
+                        ? Image.network(
+                            festival.urlLogo!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              color: Colors.grey.shade200,
+                              child: const Icon(Icons.music_note, size: 50, color: Colors.grey),
+                            ),
+                          )
+                        : Container(
+                            color: Colors.grey.shade200,
+                            child: const Icon(Icons.music_note, size: 50, color: Colors.grey),
+                          ),
+                    ),
+                  ),
+                );
+              }).toList();
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 0.0),
+                child: CarouselWidget(carouselItems: carouselItems),
+              );
+            },
           ),
 
           const SizedBox(height: 20),
@@ -449,13 +493,23 @@ Widget _buildscannerPage() {
             if (result != null && mounted) {
             // Vérifie si le résultat ressemble à une URL
             if (result.startsWith('http://') || result.startsWith('https://')) {
-              final Uri url = Uri.parse(result);
-              // Si le résultat est une URL valide, tentative d'ouverture dans le navigateur.
-              if (await canLaunchUrl(url)) {
-                await launchUrl(url, mode: LaunchMode.externalApplication);
+              // Vérification de la whitelist
+              if (Config.isUrlAllowed(result)) {
+                final Uri url = Uri.parse(result);
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Impossible d'ouvrir l'URL : $result")),
+                  );
+                }
               } else {
+                // URL bloquée par la whitelist
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Impossible d'ouvrir l'URL : $result")),
+                  const SnackBar(
+                    content: Text("Accès refusé : ce code QR n'est pas autorisé."),
+                    backgroundColor: Colors.red,
+                  ),
                 );
               }
             } else {

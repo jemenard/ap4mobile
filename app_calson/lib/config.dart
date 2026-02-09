@@ -8,6 +8,13 @@ class Config {
   static const String apiUrlReservations = 'http://192.168.110.16:8000/api/reservations';
   static const String apiUrlReserver = 'http://192.168.110.16:8000/api/reserver';
   static const String apiUrlQrCode = 'http://192.168.110.16:8000/api/reservation';
+
+  /// Vérifie si une URL scannée est autorisée (whitelist)
+  static bool isUrlAllowed(String url) {
+    const allowedPrefix = 'http://192.168.110.16';
+    const allowedPrefixHttps = 'https://192.168.110.16';
+    return url.startsWith(allowedPrefix) || url.startsWith(allowedPrefixHttps);
+  }
   // Dev
   // static const String apiUrl = 'https://api.mon-festival.fr'; // Prod
 }

@@ -43,7 +43,14 @@ class DatabaseService {
         print('Response Body: ${response.body}');
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
         final List<dynamic> body = jsonResponse['data'];
-        return body.map((dynamic item) => Festival.fromMap(item)).toList();
+        final List<Festival> allFestivals = body.map((dynamic item) => Festival.fromMap(item)).toList();
+        
+        // Filtrage : uniquement les festivals dont la date de fin n'est pas passée
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        return allFestivals.where((f) => 
+          f.endDate.isAfter(today) || f.endDate.isAtSameMomentAs(today)
+        ).toList();
       } else {
         print('Error Body: ${response.body}');
         throw "Erreur serveur : ${response.statusCode}";
