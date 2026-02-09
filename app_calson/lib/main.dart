@@ -16,6 +16,7 @@ import 'widgets/home_appbar.dart';
 import 'widgets/scanner.dart';
 import 'widgets/connexionPage.dart';
 import 'widgets/user_tickets_page.dart';
+import 'widgets/news_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -257,6 +258,12 @@ class _MyHomePageState extends State<MyHomePage> {
               elevation: 4,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: ListTile(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const NewsPage()),
+                  );
+                },
                 contentPadding: const EdgeInsets.all(16),
                 leading: Container(
                   padding: const EdgeInsets.all(10),
@@ -267,7 +274,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   child: const Icon(Icons.new_releases, color: Color(0xFF13293d)),
                 ),
                 title: const Text("Dernières sorties", style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text("Découvrez les festivals les plus attendus cette saison."),
+                subtitle: const Text("Découvrez les dernières nouvelles et annonces."),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               ),
             ),

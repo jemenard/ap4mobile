@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/festival.dart';
 import '../models/manifestation.dart';
 import '../models/ticket.dart';
+import '../models/news.dart';
 import '../config.dart';
 
 /// Service central gérant les communications avec l'API backend.
@@ -395,6 +396,41 @@ class DatabaseService {
     } catch (e) {
       print('DatabaseService.sendConfirmationEmail Error: $e');
       return false;
+    }
+  }
+
+  /// Récupère la liste des actualités.
+  Future<List<News>> getNews() async {
+    try {
+      final response = await http.get(Uri.parse(Config.apiUrlNews));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        final List<dynamic> body = jsonResponse['data'];
+        return body.map((item) => News.fromMap(item)).toList();
+      } else {
+        throw "Erreur récupération actualités (${response.statusCode})";
+      }
+    } catch (e) {
+      print('DatabaseService.getNews Error: $e');
+      return [];
+    }
+  }
+
+  /// Récupère le détail d'une actualité spécifique.
+  Future<News?> getNewsDetail(int newsId) async {
+    final url = "${Config.apiUrlNewsDetail}/$newsId";
+    try {
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        return News.fromMap(jsonResponse['data']);
+      }
+      return null;
+    } catch (e) {
+      print('DatabaseService.getNewsDetail Error: $e');
+      return null;
     }
   }
 
