@@ -6,6 +6,7 @@ class Ticket {
   final double price;
   final String type; // Plein, Étudiant, Enfant
   final bool isPass;
+  final bool isCancelled;
 
   Ticket({
     required this.id,
@@ -15,6 +16,7 @@ class Ticket {
     required this.price,
     required this.type,
     required this.isPass,
+    required this.isCancelled,
   });
 
   factory Ticket.fromMap(Map<String, dynamic> map) {
@@ -53,6 +55,10 @@ class Ticket {
       price: double.tryParse(map['prix_paye'].toString()) ?? 0.0,
       type: map['type_billet'] ?? "Inconnu",
       isPass: isPass,
+      isCancelled: map['statut']?.toString().toLowerCase() == 'annulé' || 
+                   map['etat']?.toString().toLowerCase() == 'annulé' ||
+                   map['is_cancelled'] == 1 || 
+                   map['is_cancelled'] == true,
     );
   }
 }

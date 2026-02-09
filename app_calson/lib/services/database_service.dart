@@ -492,4 +492,31 @@ class DatabaseService {
       return null;
     }
   }
+  /// Annule une réservation.
+  Future<bool> annulerReservation(int reservationId) async {
+    final url = "${Config.apiUrlQrCode}/$reservationId"; // /api/reservation/{id}
+    print('--- API REQUEST (annulerReservation) ---');
+    print('URL: $url');
+    try {
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: {
+          'Accept': 'application/json',
+          if (_token != null) 'Authorization': 'Bearer $_token',
+        },
+      );
+
+      print('Status Code: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        print('Annulation success: ${response.body}');
+        return true;
+      } else {
+        print('Erreur annulation (${response.statusCode}): ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('Exception annulerReservation: $e');
+      return false;
+    }
+  }
 }

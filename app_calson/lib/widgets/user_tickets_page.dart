@@ -64,7 +64,7 @@ class _UserTicketsPageState extends State<UserTicketsPage> {
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
-        onTap: () => _showQrCode(ticket),
+        onTap: ticket.isCancelled ? null : () => _showQrCode(ticket),
         borderRadius: BorderRadius.circular(16),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
@@ -75,7 +75,9 @@ class _UserTicketsPageState extends State<UserTicketsPage> {
                 // Left accent bar
                 Container(
                   width: 10,
-                  color: ticket.isPass ? const Color(0xFF13293d) : Colors.orange,
+                  color: ticket.isCancelled 
+                    ? Colors.grey 
+                    : (ticket.isPass ? const Color(0xFF13293d) : Colors.orange),
                 ),
                 Expanded(
                   child: Padding(
@@ -89,25 +91,34 @@ class _UserTicketsPageState extends State<UserTicketsPage> {
                             Expanded(
                               child: Text(
                                 ticket.eventName,
-                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  fontSize: 18, 
+                                  fontWeight: FontWeight.bold,
+                                  color: ticket.isCancelled ? Colors.grey : Colors.black,
+                                  decoration: ticket.isCancelled ? TextDecoration.lineThrough : null,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: (ticket.isPass ? const Color(0xFF13293d) : Colors.orange).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                ticket.isPass ? "PASS" : "TICKET",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: ticket.isPass ? const Color(0xFF13293d) : Colors.orange[800],
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: ticket.isCancelled 
+                                    ? Colors.grey.withOpacity(0.1)
+                                    : (ticket.isPass ? const Color(0xFF13293d) : Colors.orange).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  ticket.isCancelled ? "ANNULÉ" : (ticket.isPass ? "PASS" : "TICKET"),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: ticket.isCancelled 
+                                      ? Colors.grey 
+                                      : (ticket.isPass ? const Color(0xFF13293d) : Colors.orange[800]),
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                         const SizedBox(height: 12),
@@ -130,10 +141,30 @@ class _UserTicketsPageState extends State<UserTicketsPage> {
                             ),
                             Text(
                               "${ticket.price.toStringAsFixed(2)} €",
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontSize: 18, 
+                                fontWeight: FontWeight.bold,
+                                color: ticket.isCancelled ? Colors.grey : Colors.black,
+                              ),
                             ),
                           ],
                         ),
+                        if (!ticket.isCancelled) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _confirmAnnulation(ticket),
+                              icon: const Icon(Icons.cancel, size: 18),
+                              label: const Text("Annuler réservation"),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.red,
+                                side: const BorderSide(color: Colors.red),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -147,6 +178,9 @@ class _UserTicketsPageState extends State<UserTicketsPage> {
   }
 
   void _showQrCode(Ticket ticket) {
+    // Sécurité supplémentaire
+    if (ticket.isCancelled) return;
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -211,6 +245,56 @@ class _UserTicketsPageState extends State<UserTicketsPage> {
         ],
       ),
     );
+  }
+
+  void _confirmAnnulation(Ticket ticket) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Annuler la réservation ?"),
+        content: Text("Voulez-vous vraiment annuler votre réservation pour '${ticket.eventName}' ?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Non"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context); // Fermer le dialogue
+              _executeAnnulation(ticket);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text("Oui, annuler"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _executeAnnulation(Ticket ticket) async {
+    // Afficher un indicateur de chargement
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    bool success = await _databaseService.annulerReservation(ticket.id);
+
+    if (mounted) {
+      Navigator.pop(context); // Fermer le loading
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Réservation annulée avec succès")),
+        );
+        setState(() {}); // Rafraîchir la liste
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Échec de l'annulation. Veuillez réessayer.")),
+        );
+      }
+    }
   }
 
   Widget _buildInfoRow(IconData icon, String text) {
