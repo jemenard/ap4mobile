@@ -51,47 +51,64 @@ class _PaymentPageState extends State<PaymentPage> {
       final dbService = DatabaseService();
       bool allSuccessful = true;
       int successCount = 0;
+      int? firstReservationId;
       int totalToReserve = widget.fullPriceCount + widget.studentCount + widget.childCount;
 
       try {
         // Obtenir le prix de base
-        double basePrice = widget.festival.prix;
-        if (widget.manifestation != null) {
-          final prixStr = widget.manifestation!.prix.replaceAll(' €', '').replaceAll(',', '.');
-          basePrice = double.tryParse(prixStr) ?? 0.0;
-        }
+        double basePrice = widget.manifestation?.numericPrix ?? widget.festival.prix;
 
         // 1. Réserver les billets Plein Tarif
         for (int i = 0; i < widget.fullPriceCount; i++) {
-          bool ok = await dbService.reserverTicket(
+          int? id = await dbService.reserverTicket(
             festivalId: widget.festival.id,
             manifestationId: widget.manifestation?.id,
             type: "Plein tarif",
             prix: basePrice,
           );
-          if (ok) successCount++; else allSuccessful = false;
+          if (id != null) {
+            successCount++;
+            firstReservationId ??= id;
+          } else {
+            allSuccessful = false;
+          }
         }
 
         // 2. Réserver les billets Étudiant
         for (int i = 0; i < widget.studentCount; i++) {
-          bool ok = await dbService.reserverTicket(
+          int? id = await dbService.reserverTicket(
             festivalId: widget.festival.id,
             manifestationId: widget.manifestation?.id,
             type: "Tarif étudiant",
             prix: basePrice * 0.80,
           );
-          if (ok) successCount++; else allSuccessful = false;
+          if (id != null) {
+            successCount++;
+            firstReservationId ??= id;
+          } else {
+            allSuccessful = false;
+          }
         }
 
         // 3. Réserver les billets Enfant
         for (int i = 0; i < widget.childCount; i++) {
-          bool ok = await dbService.reserverTicket(
+          int? id = await dbService.reserverTicket(
             festivalId: widget.festival.id,
             manifestationId: widget.manifestation?.id,
             type: "Enfant - 10 ans",
             prix: basePrice * 0.70,
           );
-          if (ok) successCount++; else allSuccessful = false;
+          if (id != null) {
+            successCount++;
+            firstReservationId ??= id;
+          } else {
+            allSuccessful = false;
+          }
+        }
+
+        // Envoi de l'email de confirmation si au moins une réservation a réussi
+        if (firstReservationId != null) {
+          await dbService.sendConfirmationEmail(firstReservationId);
         }
 
         setState(() => _isProcessing = false);
@@ -216,13 +233,9 @@ class _PaymentPageState extends State<PaymentPage> {
                       ],
                       const SizedBox(height: 16),
                       
-                      // Calcul du prix de base (identique à TicketSelectionPage)
+                      // Calcul du prix de base
                       (() {
-                        double basePrice = widget.festival.prix;
-                        if (widget.manifestation != null) {
-                          final prixStr = widget.manifestation!.prix.replaceAll(' €', '').replaceAll(',', '.');
-                          basePrice = double.tryParse(prixStr) ?? 0.0;
-                        }
+                        final double basePrice = widget.manifestation?.numericPrix ?? widget.festival.prix;
                         
                         return Column(
                           children: [

@@ -24,14 +24,8 @@ class _TicketSelectionPageState extends State<TicketSelectionPage> {
   int studentCount = 0;
   int childCount = 0;
 
-  double get basePrice {
-    if (widget.manifestation != null) {
-      // Nettoyer et parser le prix de la manifestation
-      final prixStr = widget.manifestation!.prix.replaceAll(' €', '').replaceAll(',', '.');
-      return double.tryParse(prixStr) ?? 0.0;
-    }
-    return widget.festival.prix;
-  }
+  /// Calcule le prix de base applicable (Manif ou Festival).
+  double get basePrice => widget.manifestation?.numericPrix ?? widget.festival.prix;
 
   double get fullPrice => basePrice;
   double get studentPrice => basePrice * 0.80;

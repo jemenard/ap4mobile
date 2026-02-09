@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import '../models/festival.dart';
 import 'package:intl/intl.dart';
+import '../models/festival.dart';
 import '../services/database_service.dart';
 import 'connexionPage.dart';
 import 'manifestations_page.dart';
 import 'ticket_selection_page.dart';
 
+/// Page d'affichage des détails d'un festival.
+/// Permet de consulter les informations générales et d'initier l'achat de pass.
 class AfficherInfo extends StatelessWidget {
   final Festival festival;
 
@@ -13,232 +15,225 @@ class AfficherInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Format dates
-    final dateFormat = DateFormat('dd/MM/yyyy');
+    // Formatage des dates pour l'affichage localisé
+    final dateFormat = DateFormat('dd MMMM yyyy', 'fr_FR');
     final dateDebut = dateFormat.format(festival.startDate);
     final dateFin = dateFormat.format(festival.endDate);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          festival.name,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 18),
-        ),
-        toolbarHeight: 70,
+        title: Text(festival.name),
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Festival image (urlLogo)
-            Container(
-              height: 200,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.blueGrey.shade100,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: festival.urlLogo != null && festival.urlLogo!.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        festival.urlLogo!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Icon(Icons.broken_image, size: 100, color: Colors.blueGrey);
-                        },
-                      ),
-                    )
-                  : const Icon(Icons.event, size: 100, color: Colors.blueGrey),
-            ),
+            // Section visuelle (Logo/Affiche)
+            _buildFestivalHeader(),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
+            // Titre et Édition
             Text(
-              "Thème : ${festival.theme}",
+              festival.theme,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
             ),
-
-            const SizedBox(height: 10),
-
+            const SizedBox(height: 8),
             Text(
               "Édition ${festival.annee}",
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.green.shade200),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildInfoRow(Icons.calendar_today, "Début", dateDebut),
-                  const SizedBox(height: 10),
-                  _buildInfoRow(Icons.event_busy, "Fin", dateFin),
-                  const SizedBox(height: 10),
-                  _buildInfoRow(Icons.location_on, "Lieu", festival.location),
-                  const SizedBox(height: 10),
-                  _buildInfoRow(
-                      Icons.euro, "Prix", "${festival.prix.toStringAsFixed(2)} €"),
-                ],
-              ),
-            ),
+            // Cartouche d'informations pratiques
+            _buildPracticalInfo(dateDebut, dateFin),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 32),
 
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "À propos du festival",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    festival.theme,
-                    style: const TextStyle(fontSize: 16, height: 1.5),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ManifestationsPage(
-                      festival: festival,
-                      festivalId: festival.id,
-                    ),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: const Icon(Icons.list_alt),
-              label: const Text("Détails des manifestations"),
-            ),
-
-            const SizedBox(height: 12),
-
-            ElevatedButton.icon(
-              onPressed: () async {
-                final dbService = DatabaseService();
-                
-                // 1. Vérifier l'authentification
-                if (!dbService.isLoggedIn) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ConnexionPage()),
-                  );
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Vous devez être connecté pour acheter des billets"),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                  return;
-                }
-
-                // 2. Afficher un indicateur de chargement
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (context) => const Center(child: CircularProgressIndicator()),
-                );
-
-                try {
-                  // 3. Vérifier la limite de 4 billets "Pass Festival" (sans manifestation)
-                  int count = await dbService.getTicketsCount(festival.id);
-                  
-                  if (!context.mounted) return;
-                  Navigator.pop(context); // Fermer le loader
-
-                  if (count >= 4) {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text("Limite atteinte"),
-                        content: const Text("Vous avez déjà réservé le maximum de 4 billets autorisés pour ce festival."),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text("OK"),
-                          ),
-                        ],
-                      ),
-                    );
-                  } else {
-                    // 4. Naviguer vers la sélection de billets
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => TicketSelectionPage(
-                          festival: festival,
-                          existingTicketsCount: count,
-                        ),
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  if (!context.mounted) return;
-                  Navigator.pop(context); // Fermer le loader
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Erreur lors de la vérification : $e")),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: const Icon(Icons.shopping_cart),
-              label: const Text("Acheter des billets"),
-            ),
+            // Section d'actions (Boutons)
+            _buildActionButtons(context),
           ],
         ),
       ),
     );
   }
 
+  /// Construit l'en-tête visuel avec l'image du festival.
+  Widget _buildFestivalHeader() {
+    return Container(
+      height: 220,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.blueGrey.shade50,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: (festival.urlLogo != null && festival.urlLogo!.isNotEmpty)
+            ? Image.network(
+                festival.urlLogo!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _buildPlaceholder(),
+              )
+            : _buildPlaceholder(),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return const Icon(Icons.festival_outlined, size: 80, color: Colors.blueGrey);
+  }
+
+  /// Affiche les informations de dates, lieu et prix.
+  Widget _buildPracticalInfo(String start, String end) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          _buildInfoRow(Icons.calendar_month, "Dates", "$start au $end"),
+          const Divider(height: 24),
+          _buildInfoRow(Icons.location_on_outlined, "Lieu", festival.location),
+          const Divider(height: 24),
+          _buildInfoRow(Icons.payments_outlined, "Prix Pass", "${festival.prix.toStringAsFixed(2)} €"),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20),
-        const SizedBox(width: 8),
-        Text(
-          "$label : ",
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        Icon(icon, color: const Color(0xFF13293d), size: 24),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          ],
         ),
-        Expanded(child: Text(value, style: const TextStyle(fontSize: 16))),
       ],
+    );
+  }
+
+  /// Groupe les boutons d'achat et de consultation des manifestations.
+  Widget _buildActionButtons(BuildContext context) {
+    return Column(
+      children: [
+        // Bouton Manifestations
+        OutlinedButton.icon(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ManifestationsPage(festival: festival, festivalId: festival.id),
+            ),
+          ),
+          icon: const Icon(Icons.list_alt),
+          label: const Text("Détails des manifestations"),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 55),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+
+        // Bouton Achat Tickets
+        ElevatedButton.icon(
+          onPressed: () => _handleTicketPurchase(context),
+          icon: const Icon(Icons.shopping_bag_outlined),
+          label: const Text("Acheter un Pass Festival"),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF13293d),
+            foregroundColor: Colors.white,
+            minimumSize: const Size(double.infinity, 55),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 2,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Gère la logique d'achat : connexion et vérification du quota.
+  Future<void> _handleTicketPurchase(BuildContext context) async {
+    final dbService = DatabaseService();
+
+    // 1. Vérification connexion
+    if (!dbService.isLoggedIn) {
+      _redirectToLogin(context);
+      return;
+    }
+
+    // 2. Affichage loader
+    _showLoading(context);
+
+    try {
+      // 3. Vérification du quota (max 4 billets par festival)
+      int count = await dbService.getTicketsCount(festival.id);
+      
+      if (!context.mounted) return;
+      Navigator.pop(context); // Fermeturer loader
+
+      if (count >= 4) {
+        _showLimitDialog(context);
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TicketSelectionPage(
+              festival: festival,
+              existingTicketsCount: count,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // Fermer loader
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erreur technique : $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _redirectToLogin(BuildContext context) {
+    Navigator.push(context, MaterialPageRoute(builder: (context) => const ConnexionPage()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Veuillez vous connecter pour acheter un billet.")),
+    );
+  }
+
+  void _showLoading(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  void _showLimitDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Limite atteinte"),
+        content: const Text("Vous ne pouvez pas acheter plus de 4 pass pour ce festival."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Compris")),
+        ],
+      ),
     );
   }
 }

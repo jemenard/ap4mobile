@@ -14,35 +14,41 @@ class _ConnexionPageState extends State<ConnexionPage> {
   // Contrôleurs pour récupérer le texte saisi par l'utilisateur dans les champs Email et Mot de passe.
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _mdpController = TextEditingController();
-  
   final DatabaseService _databaseService = DatabaseService();
+  
+  bool _isLoading = false;
 
   /// Méthode déclenchée lors du clic sur le bouton "Se connecter".
   void _tenterConnexion() async {
-    // Récupération des données saisies.
-    String email = _emailController.text;
+    String email = _emailController.text.trim();
     String mdp = _mdpController.text;
 
-    try
-    {
-      print('Tentative de connexion pour : $email');
-      // Tentative de connexion via le service dédié.
+    if (email.isEmpty || mdp.isEmpty) {
+      _showError("Veuillez remplir tous les champs.");
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
       bool result = await _databaseService.connexion(email, mdp);
-      print('Résultat connexion : $result');
-      
-      // Si la connexion réussit, on ferme simplement la page pour revenir à l'accueil
-      if(result && mounted){
-        print('Connexion réussie, fermeture de la page...');
+      if (result && mounted) {
         Navigator.pop(context);
       }
+    } catch (e) {
+      _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    catch (e) 
-    {
-      print('ERREUR lors de la connexion : $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Échec : ${e.toString()}"))
-      );
-    }
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -137,19 +143,17 @@ class _ConnexionPageState extends State<ConnexionPage> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: _tenterConnexion,
+                          onPressed: _isLoading ? null : _tenterConnexion,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF13293d),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            disabledBackgroundColor: Colors.grey,
                           ),
-                          child: const Text(
-                            "Se connecter",
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
+                          child: _isLoading 
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Text("Se connecter", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],

@@ -1,5 +1,6 @@
 import 'session.dart';
 
+/// Représente une manifestation (événement spécifique au sein d'un festival).
 class Manifestation {
   final int id;
   final String titre;
@@ -25,52 +26,46 @@ class Manifestation {
     this.urlAffiche,
   });
 
-  /// Calcule la capacité restante
+  /// Retourne le prix sous forme de double pour les calculs.
+  double get numericPrix {
+    if (prix.toLowerCase().contains('gratuit')) return 0.0;
+    final cleanPrix = prix.replaceAll(' €', '').replaceAll(',', '.').trim();
+    return double.tryParse(cleanPrix) ?? 0.0;
+  }
+
+  /// Calcule la capacité restante en fonction des réservations connues.
   int get capaciteRestante {
     final capaciteMax = int.tryParse(jaugeMax) ?? 0;
     final nbReservations = reservations?.length ?? 0;
     return capaciteMax - nbReservations;
   }
 
-  /// Retourne la capacité sous forme "X / Y"
+  /// Retourne la capacité sous forme texte "Restant / Max".
   String get capaciteFormatted {
     final capaciteMax = int.tryParse(jaugeMax) ?? 0;
     return "$capaciteRestante / $capaciteMax";
   }
 
+  /// Crée une [Manifestation] depuis une Map simple.
   factory Manifestation.fromMap(Map<String, dynamic> map) {
     return Manifestation(
-      id: int.parse(map['Id_Manifestation'].toString()),
-      titre: map['titre'],
-      resume: map['resume'],
-      publicVise: map['public_vise'],
-      jaugeMax: map['jauge_max'].toString(),
+      id: int.parse(map['Id_Manifestation']?.toString() ?? "0"),
+      titre: map['titre']?.toString() ?? "Sans titre",
+      resume: map['resume']?.toString() ?? "",
+      publicVise: map['public_vise']?.toString() ?? "Tout public",
+      jaugeMax: (map['jauge_max'] ?? "0").toString(),
       prix: map['prix']?.toString() ?? "Gratuit",
-      festivalId: map['Id_Session'] != null ? int.tryParse(map['Id_Session'].toString()) : null,
+      // On tente de récupérer l'ID du festival via différentes clés possibles
+      festivalId: int.tryParse((map['id_festival'] ?? map['Id_Festival'] ?? "").toString()),
       session: map['session'] != null ? Session.fromMap(map['session']) : null,
-      reservations: map['reservations'],
-      urlAffiche: map['url_affiche'],
+      reservations: map['reservations'] is List ? map['reservations'] : null,
+      urlAffiche: map['url_affiche']?.toString(),
     );
   }
 
-  /// Factory pour parser depuis la structure complète de l'API détails
+  /// Factory spécialisée pour parser la réponse détaillée de l'API.
   factory Manifestation.fromDetailMap(Map<String, dynamic> data) {
-    final manifestation = data['manifestation'];
-    return Manifestation(
-      id: int.parse(manifestation['Id_Manifestation'].toString()),
-      titre: manifestation['titre'],
-      resume: manifestation['resume'],
-      publicVise: manifestation['public_vise'],
-      jaugeMax: manifestation['jauge_max'].toString(),
-      prix: manifestation['prix']?.toString() ?? "Gratuit",
-      festivalId: manifestation['Id_Session'] != null 
-          ? int.tryParse(manifestation['Id_Session'].toString()) 
-          : null,
-      session: manifestation['session'] != null 
-          ? Session.fromMap(manifestation['session']) 
-          : null,
-      reservations: manifestation['reservations'],
-      urlAffiche: manifestation['url_affiche'],
-    );
+    final manifData = data['manifestation'] ?? data;
+    return Manifestation.fromMap(manifData);
   }
 }

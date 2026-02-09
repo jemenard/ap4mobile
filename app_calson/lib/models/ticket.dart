@@ -1,5 +1,7 @@
 class Ticket {
   final int id;
+  final int? festivalId;
+  final int? manifestationId;
   final String eventName;
   final String date;
   final String location;
@@ -10,6 +12,8 @@ class Ticket {
 
   Ticket({
     required this.id,
+    this.festivalId,
+    this.manifestationId,
     required this.eventName,
     required this.date,
     required this.location,
@@ -24,6 +28,9 @@ class Ticket {
     final manifestation = map['manifestation'];
     final festival = map['festival'];
     
+    int? festivalId = int.tryParse((map['id_festival'] ?? map['Id_Festival']).toString());
+    int? manifestationId = int.tryParse((map['Id_Manifestation'] ?? map['id_manifestation']).toString());
+    
     String eventName = "Pass Festival";
     String location = "";
     String date = "";
@@ -32,7 +39,9 @@ class Ticket {
     if (manifestation != null) {
       eventName = manifestation['titre'] ?? "Manifestation";
       isPass = false;
-      // Protection contre les clés manquantes dans les relations imbriquées
+      manifestationId ??= int.tryParse(manifestation['id']?.toString() ?? "");
+      festivalId ??= int.tryParse(manifestation['id_festival']?.toString() ?? "");
+      
       final session = manifestation['session'];
       if (session != null) {
         date = session['date_'] ?? session['date'] ?? "";
@@ -45,10 +54,13 @@ class Ticket {
       eventName = festival['nom'] ?? "Festival";
       location = festival['lieu'] ?? "";
       date = festival['date_debut'] ?? "";
+      festivalId ??= int.tryParse(festival['id']?.toString() ?? "");
     }
 
     return Ticket(
       id: int.parse(map['Id_Reservation'].toString()),
+      festivalId: festivalId,
+      manifestationId: manifestationId,
       eventName: eventName,
       date: date,
       location: location,

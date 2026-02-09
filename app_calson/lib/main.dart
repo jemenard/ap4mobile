@@ -1,28 +1,29 @@
 import 'package:flutter/material.dart';
-import 'widgets/carousel.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/date_symbol_data_local.dart';
+
+import 'services/database_service.dart';
+import 'models/festival.dart';
+import 'config.dart';
+
+// Import des widgets personnalisés
+import 'widgets/carousel.dart';
 import 'widgets/festival_item.dart';
 import 'widgets/afficher_info.dart';
 import 'widgets/section_header.dart';
-import 'services/database_service.dart';
-import 'models/festival.dart';
 import 'widgets/home_appbar.dart';
-import 'package:flutter/services.dart';
 import 'widgets/scanner.dart';
 import 'widgets/connexionPage.dart';
 import 'widgets/user_tickets_page.dart';
-import 'config.dart';
-
-import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
-  print('=== APP STARTING ===');
   WidgetsFlutterBinding.ensureInitialized();
   try {
+    // Initialisation de la localisation pour le formatage des dates en français
     await initializeDateFormatting('fr_FR', null);
-    print('Date formatting initialized');
   } catch (e) {
-    print('Failed to initialize date formatting: $e');
+    debugPrint('Erreur d\'initialisation des dates : $e');
   }
   runApp(const MyApp());
 }
@@ -33,7 +34,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gestion des festivals',
+      title: 'CaleSon - Festivals',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -42,7 +43,7 @@ class MyApp extends StatelessWidget {
           brightness: Brightness.light,
         ),
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF5F5F7),
+        scaffoldBackgroundColor: const Color(0xFFF5F5F7), // Gris très clair pour un look premium
       ),
       home: const MyHomePage(),
     );
@@ -56,17 +57,14 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-
-
-// Les images du carousel sont désormais récupérées dynamiquement depuis l'API.
-
 class _MyHomePageState extends State<MyHomePage> {
+  // Index de la page actuellement affichée dans l'IndexedStack
   int currentIndex = 0;
   final DatabaseService _databaseService = DatabaseService();
 
   @override
   Widget build(BuildContext context) {
-    // Liste dynamique des destinations basée sur l'état de connexion/admin
+    // Construction dynamique de la barre de navigation selon les droits de l'utilisateur
     final List<NavigationDestination> destinations = [
       const NavigationDestination(
         selectedIcon: Icon(Icons.home),
@@ -79,12 +77,12 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
     ];
 
-    // Map pour convertir l'index de la barre vers l'index de l'IndexedStack
-    // Stack Index: 0:Accueil, 1:Festivals, 2:Tickets, 3:Scanner, 4:Paramètres
+    // Mapping pour lier l'index visuel de la barre à l'index technique de l'IndexedStack
+    // Stack Index convention: 0:Accueil, 1:Festivals, 2:Tickets, 3:Scanner, 4:Paramètres
     final Map<int, int> barToStack = {0: 0, 1: 1};
 
     if (_databaseService.isLoggedIn) {
-      barToStack[destinations.length] = 2; // Tickets
+      barToStack[destinations.length] = 2; // Accès aux tickets
       destinations.add(const NavigationDestination(
         icon: Icon(Icons.confirmation_number_outlined),
         label: 'Tickets',
@@ -92,14 +90,14 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     if (_databaseService.isAdmin) {
-      barToStack[destinations.length] = 3; // Scanner
+      barToStack[destinations.length] = 3; // Accès scanner (Admin uniquement)
       destinations.add(const NavigationDestination(
         icon: Icon(Icons.qr_code),
         label: 'Scanner',
       ));
     }
 
-    // Paramètres est toujours le dernier élément de la barre
+    // Paramètres : toujours présent en dernière position
     final int settingsBarIndex = destinations.length;
     barToStack[settingsBarIndex] = 4;
     destinations.add(const NavigationDestination(
@@ -107,7 +105,7 @@ class _MyHomePageState extends State<MyHomePage> {
       label: 'Paramètres',
     ));
 
-    // Déterminer l'index sélectionné dans la barre à partir de currentIndex
+    // Détermination de l'index à surligner dans la barre
     int selectedBarIndex = 0;
     barToStack.forEach((barIdx, stackIdx) {
       if (stackIdx == currentIndex) selectedBarIndex = barIdx;
@@ -121,7 +119,7 @@ class _MyHomePageState extends State<MyHomePage> {
           _buildAccueilPage(),
           _buildListeFestivalPage(),
           _buildTicketPage(),
-          _buildscannerPage(),
+          _buildScannerPage(),
           _buildParamPage(),
         ],
       ),
@@ -129,19 +127,17 @@ class _MyHomePageState extends State<MyHomePage> {
         selectedIndex: selectedBarIndex,
         onDestinationSelected: (value) async {
           int targetStackIndex = barToStack[value] ?? 0;
-          print('Navigation: BarIndex $value -> StackIndex $targetStackIndex');
           
-          // Vérification du festival actif pour le scanner (index 3)
+          // Vérification spécifique pour le scanner
           if (targetStackIndex == 3) {
             bool active = await _databaseService.isFestivalActive();
             if (!active && mounted) {
               _showNoFestivalDialog();
-              return; // Annule la navigation
+              return;
             }
           }
 
-          // Sécurité : si on n'est pas connecté et qu'on essaie d'aller sur Tickets/Scanner
-          // On redirige vers Paramètres
+          // Protection : redirection si accès non autorisé
           if (!_databaseService.isLoggedIn && (targetStackIndex == 2 || targetStackIndex == 3)) {
             targetStackIndex = 4;
           }
@@ -155,13 +151,13 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  /// Affiche une pop-up d'erreur si aucun festival n'est en cours.
+  /// Dialogue d'alerte si aucun festival n'est en cours (pour le scanner).
   void _showNoFestivalDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Accès refusé"),
-        content: const Text("Aucun festival en cours"),
+        title: const Text("Accès restreint"),
+        content: const Text("Le scanner n'est disponible que lorsqu'un festival est en cours."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -172,7 +168,7 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  /// Construit le bouton d'action pour la connexion/déconnexion dans la barre d'application.
+  /// Gère l'action d'authentification dans l'AppBar.
   Widget _buildAuthAction() {
     return IconButton(
       icon: Icon(
@@ -181,22 +177,19 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       onPressed: () {
         if (_databaseService.isLoggedIn) {
-          // Déconnexion
           setState(() {
             _databaseService.deconnexion();
-            currentIndex = 0; // Retour à l'accueil après déconnexion
+            currentIndex = 0;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Vous avez été déconnecté.")),
+            const SnackBar(content: Text("Déconnexion réussie.")),
           );
         } else {
-          // Navigation vers la page de connexion
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const ConnexionPage()),
           ).then((_) {
-            print('Retour de ConnexionPage. LoggedIn: ${_databaseService.isLoggedIn}');
-            setState(() {}); // Rafraîchir pour afficher l'onglet Tickets
+            setState(() {}); // Rafraîchissement pour mettre à jour la barre de navigation
           });
         }
       },
@@ -204,56 +197,44 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  /// Génère l'AppBar adaptée à la page courante.
   PreferredSizeWidget _buildAppBar() {
     switch (currentIndex) {
       case 0:
         return GradientAppBar(
           title: "Bienvenue !",
-          subtitle: "Trouvez vos festivals préférés",
+          subtitle: "${DateTime.now().hour < 18 ? 'Bonne journée' : 'Bonne soirée'} sur CaleSon",
           showLogo: true,
           actions: [_buildAuthAction()],
         );
       case 1:
         return GradientAppBar(
-          title: "Liste des festivals",
-          subtitle: "Explorez tout les festivals",
+          title: "Festivals",
+          subtitle: "Découvrez tous les événements à venir",
           showLogo: false,
           actions: [
-             const Padding(
-              padding: EdgeInsets.only(right: 8.0), // Reduced because we add another icon
-              child: Icon(Icons.search, color: Colors.white),
-            ),
-            _buildAuthAction(),
+            const Icon(Icons.search, color: Colors.white),
+            _buildAuthAction()
           ],
-        
         );
-
-        case 2:
+      case 2:
         return GradientAppBar(
-          title: "Tickets",
-          subtitle: "Retrouvez vos tickets",
+          title: "Mes Tickets",
+          subtitle: "Gérez vos réservations",
           showLogo: false,
           actions: [_buildAuthAction()],
         );
-
-        case 3:
+      case 3:
         return GradientAppBar(
           title: "Scanner",
-          subtitle: "Scanner un code QR",
+          subtitle: "Contrôle d'accès",
           showLogo: false,
-          actions: [
-             const Padding(
-              padding: EdgeInsets.only(right: 8.0),
-              child: Icon(Icons.qr_code_scanner, color: Colors.white),
-            ),
-            _buildAuthAction(),
-          ],
+          actions: [_buildAuthAction()],
         );
-
       case 4:
         return GradientAppBar(
           title: "Paramètres",
-          subtitle: "Configuration de l'application",
+          subtitle: "Configuration du compte",
           showLogo: false,
           actions: [_buildAuthAction()],
         );
@@ -262,22 +243,19 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  /// Page d'accueil : Actualités et Mise en vedette.
   Widget _buildAccueilPage() {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 20),
-          // News Section
           SectionHeader(title: "Actualités"),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Card(
               elevation: 4,
-              shadowColor: Colors.black12,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: ListTile(
                 contentPadding: const EdgeInsets.all(16),
                 leading: Container(
@@ -288,48 +266,40 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   child: const Icon(Icons.new_releases, color: Color(0xFF13293d)),
                 ),
-                title: const Text(
-                  "Dernières sorties",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: const Text("Découvrez les festivals les plus attendus."),
+                title: const Text("Dernières sorties", style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text("Découvrez les festivals les plus attendus cette saison."),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               ),
             ),
           ),
 
           const SizedBox(height: 20),
-
-          // Featured / Carousel Section
           SectionHeader(
             title: "En Vedette",
-            onMoreTap: () => setState(() => currentIndex = 1), // Go to list
+            onMoreTap: () => setState(() => currentIndex = 1),
           ),
+          
           FutureBuilder<List<Festival>>(
             future: _databaseService.getFestivals(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox(
-                  height: 200,
-                  child: Center(child: CircularProgressIndicator()),
-                );
+                return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
               }
               
               if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-                return const SizedBox.shrink();
+                return const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(child: Text("Aucun festival à l'affiche")),
+                );
               }
 
               final festivals = snapshot.data!;
               final carouselItems = festivals.map((festival) {
                 return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AfficherInfo(festival: festival),
-                      ),
-                    );
-                  },
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => AfficherInfo(festival: festival)),
+                  ),
                   child: Container(
                     margin: const EdgeInsets.all(6.0),
                     decoration: BoxDecoration(
@@ -344,210 +314,175 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12.0),
-                      child: festival.urlLogo != null && festival.urlLogo!.isNotEmpty
+                      child: (festival.urlLogo != null && festival.urlLogo!.isNotEmpty)
                         ? Image.network(
                             festival.urlLogo!,
                             fit: BoxFit.cover,
                             width: double.infinity,
-                            errorBuilder: (context, error, stackTrace) => Container(
-                              color: Colors.grey.shade200,
-                              child: const Icon(Icons.music_note, size: 50, color: Colors.grey),
-                            ),
+                            errorBuilder: (_, __, ___) => _buildPlaceholderLogo(),
                           )
-                        : Container(
-                            color: Colors.grey.shade200,
-                            child: const Icon(Icons.music_note, size: 50, color: Colors.grey),
-                          ),
+                        : _buildPlaceholderLogo(),
                     ),
                   ),
                 );
               }).toList();
 
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 0.0),
-                child: CarouselWidget(carouselItems: carouselItems),
-              );
+              return CarouselWidget(carouselItems: carouselItems);
             },
           ),
 
           const SizedBox(height: 20),
-
-          // Info Card
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Card(
-              elevation: 2,
-              color: Colors.grey.shade50,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
-              ),
-              child: const Padding(
-                padding: EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.grey),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        "Version 1.0 • En développement",
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
+          _buildInfoFooter(),
         ],
       ),
     );
   }
 
-  Widget _buildListeFestivalPage() {
-    final databaseService = DatabaseService();
+  Widget _buildPlaceholderLogo() {
+    return Container(
+      color: Colors.grey.shade200,
+      child: const Icon(Icons.music_note, size: 50, color: Colors.grey),
+    );
+  }
 
-    // Widget FutureBuilder pour gérer l'état asynchrone de la récupération des festivals.
+  Widget _buildInfoFooter() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Card(
+        elevation: 0,
+        color: Colors.grey.shade100,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Colors.grey.shade300),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.grey, size: 20),
+              SizedBox(width: 12),
+              Text("Application CaleSon • v1.0.0", style: TextStyle(color: Colors.grey, fontSize: 13)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Page Liste des Festivals : Affichage sous forme de liste défilante.
+  Widget _buildListeFestivalPage() {
     return FutureBuilder<List<Festival>>(
-      future: databaseService.getFestivals(), // Appel au service pour récupérer les données.
+      future: _databaseService.getFestivals(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          // Affichage d'un indicateur de chargement pendant la requête réseau.
           return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
-          return Center(child: Text("Erreur : ${snapshot.error}"));
+          return Center(child: Text("Erreur de chargement des festivals"));
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text("Aucun festival trouvé"));
+          return const Center(child: Text("Aucun festival disponible"));
         }
 
-        final festivals = snapshot.data!;
-
-        return Container(
-          color: Colors.white, // Changed from blue to white for better look
-          alignment: Alignment.center,
-          child: ListView.builder(
-            shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(2.0, 10.0, 2.0, 10.0),
-            itemCount: festivals.length, 
-            itemBuilder: (context, index) { // Construction dynamique des éléments de la liste.
-              final festival = festivals[index];
-              return GestureDetector(
-                onTap: () {
-                  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      // Navigation vers la page de détails du festival sélectionné.
-                      builder: (context) => AfficherInfo(festival: festival),
-                    ),
-                  );
-                },
-                child: FestivalItem(festival: festival),
-              );
-            },
-          ),
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          itemCount: snapshot.data!.length, 
+          itemBuilder: (context, index) {
+            final festival = snapshot.data![index];
+            return GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => AfficherInfo(festival: festival)),
+              ),
+              child: FestivalItem(festival: festival),
+            );
+          },
         );
       },
     );
   }
 
+  /// Page Mes Tickets : Redirection vers UserTicketsPage.
+  Widget _buildTicketPage() {
+    return UserTicketsPage(key: UniqueKey());
+  }
 
-  
-Widget _buildTicketPage() {
-  return UserTicketsPage(key: UniqueKey());
-}
-
-
-Widget _buildscannerPage() {
-  return Center(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(Icons.qr_code_scanner, size: 80, color: Color(0xFF13293d)),
-        const SizedBox(height: 20),
-        const Text(
-          "Prêt à scanner ?",
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 30),
-        ElevatedButton.icon(
-          onPressed: () async 
-          {
-            // Double vérification par sécurité
-            bool active = await _databaseService.isFestivalActive();
-            if (!active && mounted) {
-              _showNoFestivalDialog();
-              return;
-            }
-
-            if (!mounted) return;
-            
-            final String? result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const Scanner()),
-            );
-            if (result != null && mounted) {
-            // Vérifie si le résultat ressemble à une URL
-            if (result.startsWith('http://') || result.startsWith('https://')) {
-              // Vérification de la whitelist
-              if (Config.isUrlAllowed(result)) {
-                final Uri url = Uri.parse(result);
-                if (await canLaunchUrl(url)) {
-                  await launchUrl(url, mode: LaunchMode.externalApplication);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Impossible d'ouvrir l'URL : $result")),
-                  );
-                }
-              } else {
-                // URL bloquée par la whitelist
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Accès refusé : ce code QR n'est pas autorisé."),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            } else {
-              // Si le résultat n'est pas une URL, affichage du contenu brut dans une SnackBar.
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("Code détecté : $result")),
-              );
-            }
-          }
-          },
-          icon: const Icon(Icons.camera_alt),
-          label: const Text("Ouvrir le scanner"),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF13293d),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-
-  Widget _buildParamPage() {
+  /// Page Scanner : Interface pour le contrôle d'accès QR Code.
+  Widget _buildScannerPage() {
     return Center(
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: 15),
-          Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const ListTile(
-              title: Text("Configurer les paramètres de l'application"),
-              subtitle: Text("Work in progress"),
+          const Icon(Icons.qr_code_scanner, size: 80, color: Color(0xFF13293d)),
+          const SizedBox(height: 20),
+          const Text("Prêt à scanner ?", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 30),
+          ElevatedButton.icon(
+            onPressed: () async {
+              // Vérifie à nouveau si un festival est actif avant d'ouvrir la caméra
+              bool active = await _databaseService.isFestivalActive();
+              if (!active && mounted) {
+                _showNoFestivalDialog();
+                return;
+              }
+
+              final String? result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const Scanner()),
+              );
+
+              if (result != null && mounted) {
+                _handleScannerResult(result);
+              }
+            },
+            icon: const Icon(Icons.camera_alt),
+            label: const Text("Lancer le scanner"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF13293d),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// Traitement du résultat scanné avec validation de sécurité.
+  void _handleScannerResult(String result) async {
+    if (result.startsWith('http://') || result.startsWith('https://')) {
+      if (Config.isUrlAllowed(result)) {
+        final Uri url = Uri.parse(result);
+        if (await canLaunchUrl(url)) {
+          await launchUrl(url, mode: LaunchMode.externalApplication);
+        } else {
+          _showToast("Impossible d'ouvrir l'URL : $result");
+        }
+      } else {
+        _showToast("Accès refusé : ce code QR n'est pas autorisé.", isError: true);
+      }
+    } else {
+      _showToast("Code détecté : $result");
+    }
+  }
+
+  void _showToast(String msg, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? Colors.red : null,
+      ),
+    );
+  }
+
+  /// Page Paramètres : Placeholder pour les réglages.
+  Widget _buildParamPage() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.settings_suggest, size: 60, color: Colors.grey),
+          SizedBox(height: 16),
+          Text("Paramètres bientôt disponibles", style: TextStyle(color: Colors.grey)),
         ],
       ),
     );

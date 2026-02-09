@@ -15,24 +15,38 @@ class _StaffConnexionPageState extends State<StaffConnexionPage> {
   
   final DatabaseService _databaseService = DatabaseService();
 
+  bool _isLoading = false;
+
   void _tenterConnexionStaff() async {
-    String email = _emailController.text;
+    String email = _emailController.text.trim();
     String mdp = _mdpController.text;
 
+    if (email.isEmpty || mdp.isEmpty) {
+      _showError("Veuillez remplir tous les champs.");
+      return;
+    }
+
+    setState(() => _isLoading = true);
     try {
       bool result = await _databaseService.connexionStaff(email, mdp);
-      
-      if(result && mounted){
+      if (result && mounted) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MyHomePage()));
       }
+    } catch (e) {
+      _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    catch (e) {
-      if(mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Échec : ${e.toString()}"))
-        );
-      }
-    }
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -143,19 +157,17 @@ class _StaffConnexionPageState extends State<StaffConnexionPage> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: _tenterConnexionStaff,
+                          onPressed: _isLoading ? null : _tenterConnexionStaff,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF13293d),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            disabledBackgroundColor: Colors.grey,
                           ),
-                          child: const Text(
-                            "Se connecter",
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
+                          child: _isLoading 
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Text("Se connecter", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],

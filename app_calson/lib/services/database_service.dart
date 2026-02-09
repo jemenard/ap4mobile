@@ -5,388 +5,244 @@ import '../models/manifestation.dart';
 import '../models/ticket.dart';
 import '../config.dart';
 
-/// Service gérant les interactions avec l'API (récupération de données, authentification).
+/// Service central gérant les communications avec l'API backend.
+/// Utilise le design pattern Singleton pour assurer une instance unique dans toute l'app.
 class DatabaseService {
-  // Instance unique de la classe (Singleton) pour éviter de créer plusieurs connexions inutiles.
   static final DatabaseService _instance = DatabaseService._internal();
 
-  factory DatabaseService() {
-    return _instance;
-  }
+  factory DatabaseService() => _instance;
 
-  // Constructeur privé utilisé par le Singleton.
   DatabaseService._internal();
   
-  // Variable pour suivre si l'utilisateur est actuellement connecté.
+  // État de l'authentification
   bool isLoggedIn = false;
-  
-  // Variable pour suivre si l'utilisateur est un administrateur.
   bool isAdmin = false;
 
-  // Stocke l'ID de l'utilisateur connecté.
+  // Données de l'utilisateur connecté
   int? userId;
-
-  // Stocke le jeton d'authentification (Bearer Token)
+  String? userNom;
+  String? userPrenom;
+  String? userEmail;
   String? _token;
 
-  /// Récupère la liste de tous les festivals depuis l'API.
-  /// Retourne une liste d'objets [Festival].
+  /// Récupère la liste des festivals actifs/futurs.
   Future<List<Festival>> getFestivals() async {
-    final url = Config.apiUrlFestivals;
-    print('--- API REQUEST (getFestivals) ---');
-    print('URL: $url');
     try {
-      final response = await http.get(Uri.parse(url));
-      print('Status Code: ${response.statusCode}');
+      final response = await http.get(Uri.parse(Config.apiUrlFestivals));
       
       if (response.statusCode == 200) {
-        print('Response Body: ${response.body}');
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
         final List<dynamic> body = jsonResponse['data'];
-        final List<Festival> allFestivals = body.map((dynamic item) => Festival.fromMap(item)).toList();
         
-        // Filtrage : uniquement les festivals dont la date de fin n'est pas passée
-        final now = DateTime.now();
-        final today = DateTime(now.year, now.month, now.day);
-        return allFestivals.where((f) => 
-          f.endDate.isAfter(today) || f.endDate.isAtSameMomentAs(today)
+        final festivals = body.map((item) => Festival.fromMap(item)).toList();
+        
+        // Filtrage : on ne garde que les festivals qui ne sont pas encore terminés
+        final today = DateTime.now();
+        final startOfToday = DateTime(today.year, today.month, today.day);
+        
+        return festivals.where((f) => 
+          f.endDate.isAfter(startOfToday) || f.endDate.isAtSameMomentAs(startOfToday)
         ).toList();
       } else {
-        print('Error Body: ${response.body}');
-        throw "Erreur serveur : ${response.statusCode}";
+        throw "Erreur serveur (${response.statusCode})";
       }
     } catch (e) {
-      print('!!! API Error !!! : $e');
+      print('DatabaseService.getFestivals Error: $e');
       rethrow;
-    } finally {
-      print('--- END API REQUEST ---');
     }
   }
 
-  /// Vérifie s'il y a au moins un festival en cours à l'instant T.
+  /// Vérifie si un festival se déroule actuellement.
   Future<bool> isFestivalActive() async {
     try {
       final festivals = await getFestivals();
       final now = DateTime.now();
+      
       return festivals.any((f) => 
         (f.startDate.isBefore(now) || f.startDate.isAtSameMomentAs(now)) && 
         (f.endDate.isAfter(now) || f.endDate.isAtSameMomentAs(now))
       );
     } catch (e) {
-      print('Erreur lors de la vérification du festival actif: $e');
       return false;
     }
   }
 
-  /// Récupère la liste des manifestations pour un festival donné (via son id).
-  /// Retourne une liste d'objets [Manifestation].
+  /// Récupère les manifestations liées à un festival spécifique.
   Future<List<Manifestation>> getManifestations(int festivalId) async {
-
-    
     final url = "${Config.apiUrlManifestations}/$festivalId/manifestations";
-    print('--- API REQUEST (getManifestations) ---');
-    print('URL: $url');
     try {
       final response = await http.get(Uri.parse(url));
-      print('Status Code: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        print('Response Body: ${response.body}');
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
         final List<dynamic> body = jsonResponse['data'];
-        // Parse la structure imbriquée {"manifestation": {...}}
-        return body.map((dynamic item) {
-          final manifestationData = item['manifestation'];
-          return Manifestation.fromMap(manifestationData);
-        }).toList();
+        
+        // Structure API attendue : {"data": [{"manifestation": {...}}, ...]}
+        return body.map((item) => Manifestation.fromMap(item['manifestation'])).toList();
       } else {
-        print('Error Body: ${response.body}');
         throw "Erreur serveur : ${response.statusCode}";
       }
     } catch (e) {
-      print('!!! API Error !!! : $e');
+      print('DatabaseService.getManifestations Error: $e');
       rethrow;
-    } finally {
-      print('--- END API REQUEST ---');
     }
   }
 
-  /// Récupère les détails complets d'une manifestation (avec session, lieu, réservations)
+  /// Récupère le détail complet d'une manifestation (sessions, lieux, etc).
   Future<Manifestation> getManifestationDetails(int manifestationId) async {
     final url = "${Config.apiUrlDetailManifestations}/$manifestationId";
-    print('--- API REQUEST (getManifestationDetails) ---');
-    print('URL: $url');
     try {
       final response = await http.get(Uri.parse(url));
-      print('Status Code: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        print('Response Body: ${response.body}');
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
         return Manifestation.fromDetailMap(jsonResponse['data']);
       } else {
-        print('Error Body: ${response.body}');
         throw "Erreur serveur : ${response.statusCode}";
       }
     } catch (e) {
-      print('!!! API Error !!! : $e');
+      print('DatabaseService.getManifestationDetails Error: $e');
       rethrow;
-    } finally {
-      print('--- END API REQUEST ---');
     }
   }
 
-  /// Tente de connecter un utilisateur avec son email et mot de passe.
-  /// Retourne `true` si la connexion est réussie, sinon lève une erreur.
+  /// Authentification de l'utilisateur.
+  /// NOTE: En production, utilisez impérativement HTTPS pour protéger les identifiants.
   Future<bool> connexion(String email, String mdp) async {
-    final url = Config.apiUrlConnexion;
-    print('--- API REQUEST (connexion) ---');
-    print('URL: $url');
-    try 
-    {
+    try {
       final response = await http.post(
-        Uri.parse(url),
-        headers:
-        {
-          // Indique au serveur que l'application attend une réponse au format JSON.
-          // C'est nécessaire pour éviter des erreurs de format ou des redirections inattendues.
-          'Accept': 'application/json', 
-        },
-        body:
-        {
-          'email': email,
-          'password': mdp,
-        },
+        Uri.parse(Config.apiUrlConnexion),
+        headers: {'Accept': 'application/json'},
+        body: {'email': email, 'password': mdp},
       );
-      print('Status Code: ${response.statusCode}');
+
       if (response.statusCode == 200) {
-        print('Response Body: ${response.body}');
-        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        final Map<String, dynamic> json = jsonDecode(response.body);
         
-        // On suppose que l'ID est dans jsonResponse['user']['id'] ou jsonResponse['id']
-        // À adapter selon le retour réel de ton API
-        print('--- LOGIN PARSING DEBUG ---');
-        print('jsonResponse keys: ${jsonResponse.keys}');
-        if (jsonResponse.containsKey('user')) {
-          final userData = jsonResponse['user'];
-          print('Found "user" object: $userData');
-          print('user["Id_Utilisateur"]: ${userData['Id_Utilisateur']} (Type: ${userData['Id_Utilisateur']?.runtimeType})');
-          print('user["id"]: ${userData['id']} (Type: ${userData['id']?.runtimeType})');
-          
-          userId = int.tryParse(userData['Id_Utilisateur']?.toString() ?? userData['id']?.toString() ?? "");
-          print('Resulting userId from "user": $userId');
-        } else if (jsonResponse.containsKey('data')) {
-          final data = jsonResponse['data'];
-          print('Found "data" object: $data');
-          userId = int.tryParse((data['Id_Utilisateur'] ?? data['id'] ?? "").toString());
-          print('Resulting userId from "data": $userId');
-        } else if (jsonResponse.containsKey('id')) {
-          userId = int.tryParse(jsonResponse['id'].toString());
-          print('Resulting userId from root "id": $userId');
+        // Extraction de l'ID utilisateur (gestion de plusieurs formats possibles de l'API)
+        final userData = json['user'] ?? json['data'] ?? json;
+        userId = int.tryParse((userData['Id_Utilisateur'] ?? userData['id']).toString());
+        
+        // Récupération du Bearer Token pour les requêtes authentifiées suivantes
+        if (json.containsKey('token')) {
+          _token = json['token'].toString();
         }
 
-        if (jsonResponse.containsKey('token')) {
-          _token = jsonResponse['token'].toString();
-          print('Token extracted successfully');
-        }
-
-        print('--- END LOGIN PARSING DEBUG ---');
         if (userId != null) {
+          userNom = userData['nom']?.toString() ?? userData['Nom']?.toString();
+          userPrenom = userData['prenom']?.toString() ?? userData['Prenom']?.toString();
+          userEmail = userData['email']?.toString() ?? userData['Email']?.toString() ?? email;
+          
           isLoggedIn = true;
           isAdmin = false; 
           return true;
-        } else {
-          print('ERREUR : Login réussi mais ID utilisateur introuvable dans la réponse.');
-          throw "Erreur de format de réponse (ID manquant)";
         }
+        return false;
       } else {
-        print('Error Body: ${response.body}');
-        throw "Erreur serveur : ${response.statusCode}";
+        throw _handleApiError(response);
       }
     } catch (e) {
-      print('!!! API Error !!! : $e');
+      print('DatabaseService.connexion Error: $e');
       rethrow;
-    } finally {
-      print('--- END API REQUEST ---');
     }
   }
 
-  /// Inscrit un nouvel utilisateur avec les informations fournies.
-  /// Connecte automatiquement l'utilisateur si l'inscription réussit.
-  Future<bool> inscription
-  ({
+  /// Inscription d'un nouvel utilisateur.
+  Future<bool> inscription({
     required String nom,
     required String prenom,
     required String email,
     required String telephone,
     required String mdp,
   }) async {
-    print('--- API REQUEST (inscription) ---');
-    final url = Config.apiUrlInscription;
-    print('URL: $url');
-    try 
-    {
-      final bodyData = {
-        'nom': nom,
-        'prenom': prenom,
-        'email': email,
-        'telephone': telephone,
-        'mdp': mdp,
-      };
-      print('Sending Registration Data: $bodyData');
-
+    try {
       final response = await http.post(
-        Uri.parse(url),
-        headers:
-        {
-          // Indique au serveur que nous attendons du JSON en réponse.
-          'Accept': 'application/json',
+        Uri.parse(Config.apiUrlInscription),
+        headers: {'Accept': 'application/json'},
+        body: {
+          'nom': nom,
+          'prenom': prenom,
+          'email': email,
+          'telephone': telephone,
+          'mdp': mdp,
         },
-        body: bodyData,
       );
-      print('Status Code: ${response.statusCode}');
+
       if (response.statusCode == 201) {
-        print('Response Body: ${response.body}');
-        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        final json = jsonDecode(response.body);
         
-        if (jsonResponse.containsKey('data') && jsonResponse['data'] is Map && jsonResponse['data'].containsKey('Id_Utilisateur')) {
-           userId = int.tryParse(jsonResponse['data']['Id_Utilisateur'].toString());
+        // Tentative d'auto-connexion après inscription
+        if (json.containsKey('data') && json['data']['Id_Utilisateur'] != null) {
+          userId = int.tryParse(json['data']['Id_Utilisateur'].toString());
         }
 
+        userNom = nom;
+        userPrenom = prenom;
+        userEmail = email;
         isLoggedIn = true;
         isAdmin = false;
         return true;
       } else {
-        print('Error Body: ${response.body}');
-        throw "Erreur serveur : ${response.statusCode}";
+        throw _handleApiError(response);
       }
-
-      
     } catch (e) {
-      print('!!! API Error !!! : $e');
+      print('DatabaseService.inscription Error: $e');
       rethrow;
-    } finally {
-      print('--- END API REQUEST ---');
     }
   }
 
-  /// Connexion pour le personnel staff avec endpoint dédié.
+  /// Authentification pour le personnel (Staff/Admin).
   Future<bool> connexionStaff(String email, String mdp) async {
-    final url = Config.apiUrlConnexionStaff;
-    print('--- API REQUEST (connexionStaff) ---');
-    print('URL: $url');
     try {
-      final bodyData = {
-        'email': email,
-        'password': mdp,
-      };
-      print('Sending Staff Login Data: $bodyData');
-
       final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Accept': 'application/json',
-        },
-        body: bodyData,
+        Uri.parse(Config.apiUrlConnexionStaff),
+        headers: {'Accept': 'application/json'},
+        body: {'email': email, 'password': mdp},
       );
-      print('Status Code: ${response.statusCode}');
+
       if (response.statusCode == 200) {
-        print('Response Body: ${response.body}');
-        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        final json = jsonDecode(response.body);
         
-        // Extraction de l'ID pour le staff si présent
-        if (jsonResponse.containsKey('data') && jsonResponse['data'] is Map && jsonResponse['data'].containsKey('Id_Utilisateur')) {
-           userId = int.tryParse(jsonResponse['data']['Id_Utilisateur'].toString());
+        if (json.containsKey('data') && json['data']['Id_Utilisateur'] != null) {
+          userId = int.tryParse(json['data']['Id_Utilisateur'].toString());
+        }
+
+        if (json.containsKey('data')) {
+          final userData = json['data'];
+          userNom = userData['nom']?.toString() ?? userData['Nom']?.toString();
+          userPrenom = userData['prenom']?.toString() ?? userData['Prenom']?.toString();
+          userEmail = userData['email']?.toString() ?? userData['Email']?.toString() ?? email;
         }
 
         isLoggedIn = true;
-        isAdmin = true; // C'est un staff/admin
+        isAdmin = true;
         return true;
       } else {
-        print('Error Body: ${response.body}');
-        throw "Erreur serveur : ${response.statusCode}";
+        throw _handleApiError(response);
       }
     } catch (e) {
-      print('!!! API Error !!! : $e');
+      print('DatabaseService.connexionStaff Error: $e');
       rethrow;
-    } finally {
-      print('--- END API REQUEST ---');
     }
   }
 
-  /// Déconnecte l'utilisateur localement.
+  /// Déconnexion : réinitialise l'état local.
   void deconnexion() {
     isLoggedIn = false;
     isAdmin = false;
     userId = null;
+    userNom = null;
+    userPrenom = null;
+    userEmail = null;
     _token = null;
   }
 
-  /// Récupère le nombre de réservations d'un utilisateur pour un événement donné.
-  /// Si [manifestationId] est fourni, compte les billets pour cette manifestation.
-  /// Sinon, compte les billets "Pass Festival" (Id_Manifestation est null).
-  Future<int> getTicketsCount(int festivalId, {int? manifestationId}) async {
-    if (userId == null) return 0;
-    
-    final url = "${Config.apiUrlReservations}/$userId";
-    print('--- API REQUEST (getTicketsCount) ---');
-    print('URL: $url | Filter: ${manifestationId != null ? "Manifestation $manifestationId" : "Pass Festival"}');
-    
-    try {
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'Accept': 'application/json',
-          if (_token != null) 'Authorization': 'Bearer $_token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
-        final List<dynamic> reservations = jsonResponse['data'] ?? [];
-        
-        int count = 0;
-        for (var res in reservations) {
-          if (manifestationId != null) {
-            // Pour une manifestation, on cherche uniquement l'ID manifestation
-            if (res['Id_Manifestation'] == manifestationId || res['id_manifestation'] == manifestationId) {
-              count++;
-            }
-          } else {
-            // Pour le festival (Pass), on cherche l'ID festival ET que manifestation soit null
-            bool sameFestival = (res['id_festival'] == festivalId || res['Id_Festival'] == festivalId);
-            bool isPass = (res['Id_Manifestation'] == null && res['id_manifestation'] == null);
-            if (sameFestival && isPass) {
-              count++;
-            }
-          }
-        }
-        print('Nombre de tickets trouvé : $count');
-        return count;
-      } else if (response.statusCode == 404) {
-        return 0; // Aucune réservation trouvée
-      } else {
-        throw "Erreur lors de la récupération des réservations";
-      }
-    } catch (e) {
-      print('Erreur tickets count: $e');
-      return 0;
-    }
-  }
-
-  /// Récupère toutes les réservations d'un utilisateur.
+  /// Récupère toutes les réservations de l'utilisateur connecté.
+  /// NOTE: Le backend devrait vérifier que le token fourni correspond au userId demandé.
   Future<List<Ticket>> getUserTickets() async {
-    print('########################################');
-    print('### FETCHING TICKETS FOR USER : $userId ###');
-    print('########################################');
-    if (userId == null) {
-      print('!!! ABORTING FETCH : userId is NULL !!!');
-      return [];
-    }
+    if (userId == null) return [];
     
     final url = "${Config.apiUrlReservations}/$userId";
-    print('--- API REQUEST (getUserTickets) ---');
-    
     try {
       final response = await http.get(
         Uri.parse(url),
@@ -397,40 +253,29 @@ class DatabaseService {
       );
 
       if (response.statusCode == 200) {
-        print('Response Body: ${response.body}');
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
         final List<dynamic> reservations = jsonResponse['data'] ?? [];
-        print('Nombre de tickets reçus: ${reservations.length}');
         return reservations.map((res) => Ticket.fromMap(res)).toList();
       } else if (response.statusCode == 404) {
-        print('Aucune réservation trouvée (404)');
-        return [];
+        return []; // Pas de billets trouvés
       } else {
-        print('Erreur API (${response.statusCode}): ${response.body}');
-        throw "Erreur lors de la récupération des tickets";
+        throw "Erreur récupération tickets (${response.statusCode})";
       }
     } catch (e) {
-      print('Erreur getUserTickets: $e');
+      print('DatabaseService.getUserTickets Error: $e');
       return [];
     }
   }
 
-  /// Effectue une réservation pour un utilisateur.
-  Future<bool> reserverTicket({
+  /// Crée une nouvelle réservation sur le serveur.
+  /// Retourne l'ID de la réservation si succès, null sinon.
+  Future<int?> reserverTicket({
     required int festivalId,
     int? manifestationId,
     required String type,
     required double prix,
   }) async {
-    final url = Config.apiUrlReserver;
-    print('--- API REQUEST (reserverTicket) ---');
-    print('URL: $url');
-    print('Current User ID: $userId');
-
-    if (userId == null) {
-      print('ERREUR : Impossible de réserver, userId est null (l\'utilisateur n\'est pas connecté)');
-      return false;
-    }
+    if (userId == null) return null;
 
     try {
       final bodyData = {
@@ -438,16 +283,12 @@ class DatabaseService {
         'id_festival': manifestationId == null ? festivalId : null,
         'Id_Manifestation': manifestationId,
         'mode_obtention': 'en_ligne',
-        // Note: type_billet et prix_paye ne sont pas dans ton snippet PHP
-        // mais on les laisse s'ils sont gérés par le modèle Reservation
         'type_billet': type,
         'prix_paye': prix,
       };
-      
-      print('Données envoyées (JSON revisité) : $bodyData');
 
       final response = await http.post(
-        Uri.parse(url),
+        Uri.parse(Config.apiUrlReserver),
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -456,27 +297,22 @@ class DatabaseService {
         body: jsonEncode(bodyData),
       );
 
-      print('Status Code: ${response.statusCode}');
       if (response.statusCode == 201 || response.statusCode == 200) {
-        print('Reservation Globale Success: ${response.body}');
-        return true;
-      } else {
-        print('--- RESERVATION FAIL ---');
-        print('Status: ${response.statusCode}');
-        print('Response Body: ${response.body}');
-        return false;
+        final json = jsonDecode(response.body);
+        // Extraction de l'ID selon la structure retournée (data.id ou Id_Reservation)
+        final data = json['data'] ?? json;
+        return int.tryParse((data['Id_Reservation'] ?? data['id']).toString());
       }
+      return null;
     } catch (e) {
-      print('ERREUR Exception reserverTicket: $e');
-      return false;
+      print('DatabaseService.reserverTicket Error: $e');
+      return null;
     }
   }
 
-  /// Récupère les données du QR code pour une réservation.
+  /// Récupère les données du QR Code pour une réservation spécifique.
   Future<String?> getQrCode(int reservationId) async {
     final url = "${Config.apiUrlQrCode}/$reservationId/qrcode";
-    print('--- API REQUEST (getQrCode) ---');
-    print('URL: $url');
     try {
       final response = await http.get(
         Uri.parse(url),
@@ -486,24 +322,20 @@ class DatabaseService {
         },
       );
 
-      print('Status Code: ${response.statusCode}');
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
         return jsonResponse['qr_code']?.toString();
-      } else {
-        print('Erreur getQrCode (${response.statusCode}): ${response.body}');
-        return null;
       }
+      return null;
     } catch (e) {
-      print('Exception getQrCode: $e');
+      print('DatabaseService.getQrCode Error: $e');
       return null;
     }
   }
-  /// Annule une réservation.
+
+  /// Annule une réservation existante.
   Future<bool> annulerReservation(int reservationId) async {
-    final url = "${Config.apiUrlQrCode}/$reservationId"; // /api/reservation/{id}
-    print('--- API REQUEST (annulerReservation) ---');
-    print('URL: $url');
+    final url = "${Config.apiUrlQrCode}/$reservationId";
     try {
       final response = await http.delete(
         Uri.parse(url),
@@ -513,17 +345,69 @@ class DatabaseService {
         },
       );
 
-      print('Status Code: ${response.statusCode}');
-      if (response.statusCode == 200) {
-        print('Annulation success: ${response.body}');
-        return true;
-      } else {
-        print('Erreur annulation (${response.statusCode}): ${response.body}');
-        return false;
-      }
+      return (response.statusCode == 200);
     } catch (e) {
-      print('Exception annulerReservation: $e');
+      print('DatabaseService.annulerReservation Error: $e');
       return false;
+    }
+  }
+
+  /// Compte le nombre de billets déjà réservés par l'utilisateur pour un festival ou une manifestation.
+  /// Utile pour vérifier la limite de 4 billets par événement.
+  Future<int> getTicketsCount(int festivalId, {int? manifestationId}) async {
+    final tickets = await getUserTickets();
+    
+    // On ne compte que les tickets qui ne sont pas annulés
+    final activeTickets = tickets.where((t) => !t.isCancelled);
+
+    if (manifestationId != null) {
+      // Filtrage par manifestation spécifique
+      return activeTickets.where((t) => t.manifestationId == manifestationId).length;
+    } else {
+      // Filtrage par festival (Pass Festival uniquement, donc manifestationId doit être null dans le ticket)
+      return activeTickets.where((t) => 
+        t.festivalId == festivalId && t.manifestationId == null
+      ).length;
+    }
+  }
+
+  /// Envoie un e-mail de confirmation pour une réservation réussie.
+  Future<bool> sendConfirmationEmail(int reservationId) async {
+    if (userEmail == null) return false;
+
+    try {
+      final response = await http.post(
+        Uri.parse(Config.apiUrlSendEmail),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          if (_token != null) 'Authorization': 'Bearer $_token',
+        },
+        body: jsonEncode({
+          'reservation_id': reservationId,
+          'email': userEmail,
+          'nom': userNom,
+          'prenom': userPrenom,
+        }),
+      );
+
+      return (response.statusCode == 200 || response.statusCode == 201);
+    } catch (e) {
+      print('DatabaseService.sendConfirmationEmail Error: $e');
+      return false;
+    }
+  }
+
+  /// Extrait le message d'erreur d'une réponse API si possible.
+  String _handleApiError(http.Response response) {
+    try {
+      final json = jsonDecode(response.body);
+      // Différents formats d'erreur possibles selon l'API
+      return json['message']?.toString() ?? 
+             json['error']?.toString() ?? 
+             "Erreur serveur (${response.statusCode})";
+    } catch (_) {
+      return "Erreur réseau ou serveur (${response.statusCode})";
     }
   }
 }
