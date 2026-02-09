@@ -32,7 +32,7 @@ class AfficherInfo extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Placeholder for image since we removed it from schema
+            // Festival image (urlLogo)
             Container(
               height: 200,
               width: double.infinity,
@@ -40,7 +40,18 @@ class AfficherInfo extends StatelessWidget {
                 color: Colors.blueGrey.shade100,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.event, size: 100, color: Colors.blueGrey),
+              child: festival.urlLogo != null && festival.urlLogo!.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        festival.urlLogo!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(Icons.broken_image, size: 100, color: Colors.blueGrey);
+                        },
+                      ),
+                    )
+                  : const Icon(Icons.event, size: 100, color: Colors.blueGrey),
             ),
 
             const SizedBox(height: 20),

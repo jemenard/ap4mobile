@@ -52,11 +52,13 @@ class Ticket {
       eventName: eventName,
       date: date,
       location: location,
-      price: double.tryParse(map['prix_paye'].toString()) ?? 0.0,
-      type: map['type_billet'] ?? "Inconnu",
+      price: double.tryParse((map['prix_payer'] ?? map['prix_paye'] ?? map['Prix_Paye'] ?? 0).toString()) ?? 0.0,
+      type: map['statut']?.toString() ?? map['libelle_statut']?.toString() ?? map['type_billet'] ?? map['Type_Billet'] ?? map['type'] ?? "Inconnu",
       isPass: isPass,
-      isCancelled: map['statut']?.toString().toLowerCase() == 'annulé' || 
-                   map['etat']?.toString().toLowerCase() == 'annulé' ||
+      isCancelled: map['Id_Statut']?.toString() == '0' || 
+                   map['id_statut']?.toString() == '0' ||
+                   map['statut']?.toString().toLowerCase().contains('annulé') == true ||
+                   map['libelle_statut']?.toString().toLowerCase().contains('annulé') == true ||
                    map['is_cancelled'] == 1 || 
                    map['is_cancelled'] == true,
     );

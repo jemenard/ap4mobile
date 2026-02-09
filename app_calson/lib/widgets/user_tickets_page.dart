@@ -91,11 +91,9 @@ class _UserTicketsPageState extends State<UserTicketsPage> {
                             Expanded(
                               child: Text(
                                 ticket.eventName,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 18, 
                                   fontWeight: FontWeight.bold,
-                                  color: ticket.isCancelled ? Colors.grey : Colors.black,
-                                  decoration: ticket.isCancelled ? TextDecoration.lineThrough : null,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -109,7 +107,7 @@ class _UserTicketsPageState extends State<UserTicketsPage> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  ticket.isCancelled ? "ANNULÉ" : (ticket.isPass ? "PASS" : "TICKET"),
+                                  ticket.type.toUpperCase(),
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,

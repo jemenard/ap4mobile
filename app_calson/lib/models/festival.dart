@@ -7,6 +7,7 @@ class Festival {
   final double prix;
   final String name;
   final String location;
+  final String? urlLogo;
 
   Festival({
     required this.id,
@@ -17,6 +18,7 @@ class Festival {
     required this.prix,
     required this.name,
     required this.location,
+    this.urlLogo,
   });
 
   // Factory (Constructeur) pour créer un Festival depuis un objet JSON (Map)
@@ -34,6 +36,7 @@ class Festival {
           : DateTime.parse(data['date_fin'].toString()),
       name: data['theme'],
       prix: double.parse(data['prix'].toString()),
+      urlLogo: data['url_logo']?.toString(),
     );
   }
 }
