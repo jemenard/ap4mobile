@@ -30,28 +30,36 @@ class DatabaseService {
   /// Récupère la liste des festivals actifs/futurs.
   /// Si l'utilisateur est Staff, on ne récupère que ceux qui lui sont assignés.
   Future<List<Festival>> getFestivals() async {
-    print('DatabaseService.getFestivals: START (isLoggedIn=$isLoggedIn, isAdmin=$isAdmin, userId=$userId)');
+    print('🚀 [API] getFestivals: START (isLoggedIn=$isLoggedIn, isAdmin=$isAdmin, userId=$userId)');
     try {
       String url = Config.apiUrlFestivals;
       bool useStaffEndpoint = false;
       
-      // Si Staff connecté, on utilise EXCLUSIVEMENT l'endpoint staff
       if (isAdmin) {
         if (userId == null) {
-          print('DatabaseService.getFestivals: isAdmin=true mais userId=null -> retour []');
+          print('🛑 [API] getFestivals: isAdmin=true mais userId=null');
           return []; 
         }
         url = "${Config.apiUrlStaff}/$userId/festivals";
         useStaffEndpoint = true;
       }
 
-      print('DatabaseService.getFestivals: Requesting URL=$url');
-      final response = await http.get(Uri.parse(url));
-      print('DatabaseService.getFestivals: URL=$url, StatusCode=${response.statusCode}');
+      print('🚀 [API] getFestivals: Requesting URL=$url');
+      final headers = {
+        'Accept': 'application/json',
+        if (_token != null) 'Authorization': 'Bearer $_token',
+      };
+      print('🚀 [API] getFestivals: Headers=$headers');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: headers,
+      );
+      print('🚀 [API] getFestivals: StatusCode=${response.statusCode}');
       
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
-        // print('DatabaseService.getFestivals: ResponseBody=${response.body}');
+        print('✅ [API] getFestivals: SUCCESS');
         
         // La structure peut varier : json['data'], json['festivals'], ou json directement
         dynamic rawData = jsonResponse['data'] ?? jsonResponse['festivals'] ?? jsonResponse;
@@ -92,6 +100,7 @@ class DatabaseService {
         print('DatabaseService.getFestivals: Staff endpoint returned empty (404/200)');
         return [];
       } else {
+        print('DatabaseService.getFestivals: FAILED (StatusCode=${response.statusCode}, Body=${response.body})');
         throw "Erreur serveur (${response.statusCode}) pour l'URL: $url";
       }
     } catch (e) {
@@ -116,19 +125,103 @@ class DatabaseService {
     }
   }
 
+  /// Récupère le festival actuellement en cours.
+  Future<Festival?> getActiveFestival() async {
+    try {
+      final festivals = await getFestivals();
+      final now = DateTime.now();
+      
+      // On cherche un festival dont les dates englobent 'maintenant'
+      for (var f in festivals) {
+        if ((f.startDate.isBefore(now) || f.startDate.isAtSameMomentAs(now)) && 
+            (f.endDate.isAfter(now) || f.endDate.isAtSameMomentAs(now))) {
+          return f;
+        }
+      }
+      // Si aucun en cours, on prend le plus proche à venir
+      if (festivals.isNotEmpty) return festivals.first;
+      return null;
+    } catch (e) {
+      print('DatabaseService.getActiveFestival Error: $e');
+      return null;
+    }
+  }
+
+  /// Calcule les statistiques de remplissage pour un festival.
+  /// Retourne une Map { 'validated': int, 'total': int }
+  Future<Map<String, int>> getFestivalStats(int festivalId) async {
+    try {
+      // 1. Récupérer les manifestations pour la jauge totale
+      final manifs = await getManifestations(festivalId);
+      int totalCapacity = 0;
+      for (var m in manifs) {
+        totalCapacity += int.tryParse(m.jaugeMax) ?? 0;
+      }
+
+      // 2. Récupérer toutes les réservations du festival pour compter les validés
+      // On utilise l'endpoint existant si possible ou on filtre
+      // Ici on va charger les manifestations détaillées pour avoir leurs réservations
+      int validatedCount = 0;
+      
+      // Note: Idéalement le backend devrait fournir un endpoint /stats/{festivalId}
+      // En attendant, on itère sur les manifestations (attention aux perfs)
+      for (var m in manifs) {
+        try {
+          print('📈 [Stats] Chargement détails pour manifestation ID: ${m.id}');
+          final detail = await getManifestationDetails(m.id);
+          if (detail.reservations != null) {
+            print('📈 [Stats] ${detail.reservations!.length} réservations trouvées pour manif ID: ${m.id}');
+            for (var res in detail.reservations!) {
+              // On accepte '2' ou 2 (string ou int) pour la validation
+              final status = res['Id_Statut']?.toString();
+              if (status == '2') {
+                 validatedCount++;
+              }
+            }
+          }
+        } catch (e) {
+          print('⚠️ [Stats] Impossible de charger les détails de la manif ${m.id}: $e');
+          // On continue pour les autres manifestations
+        }
+      }
+
+      return {
+        'validated': validatedCount,
+        'total': totalCapacity,
+      };
+    } catch (e) {
+      print('DatabaseService.getFestivalStats Error: $e');
+      return {'validated': 0, 'total': 0};
+    }
+  }
+
   /// Récupère les manifestations liées à un festival spécifique.
   Future<List<Manifestation>> getManifestations(int festivalId) async {
+    print('🚀 [API] getManifestations: START (festivalId=$festivalId)');
     final url = "${Config.apiUrlManifestations}/$festivalId/manifestations";
     try {
-      final response = await http.get(Uri.parse(url));
+      print('🚀 [API] getManifestations: Requesting URL=$url');
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Accept': 'application/json',
+          if (_token != null) 'Authorization': 'Bearer $_token',
+        },
+      );
+      print('🚀 [API] getManifestations: StatusCode=${response.statusCode}');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
         final List<dynamic> body = jsonResponse['data'];
+        print('✅ [API] getManifestations: SUCCESS');
         
         // Structure API attendue : {"data": [{"manifestation": {...}}, ...]}
         return body.map((item) => Manifestation.fromMap(item['manifestation'])).toList();
+      } else if (response.statusCode == 404) {
+        print('⚠️ [API] getManifestations: No manifestations found (404)');
+        return [];
       } else {
+        print('🛑 [API] getManifestations: FAILED (StatusCode=${response.statusCode}, Body=${response.body})');
         throw "Erreur serveur : ${response.statusCode}";
       }
     } catch (e) {
@@ -139,14 +232,29 @@ class DatabaseService {
 
   /// Récupère le détail complet d'une manifestation (sessions, lieux, etc).
   Future<Manifestation> getManifestationDetails(int manifestationId) async {
+    print('🚀 [API] getManifestationDetails: START (manifId=$manifestationId)');
     final url = "${Config.apiUrlDetailManifestations}/$manifestationId";
     try {
-      final response = await http.get(Uri.parse(url));
+      print('🚀 [API] getManifestationDetails: Requesting URL=$url');
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Accept': 'application/json',
+          if (_token != null) 'Authorization': 'Bearer $_token',
+        },
+      );
+      print('🚀 [API] getManifestationDetails: StatusCode=${response.statusCode}');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+        print('✅ [API] getManifestationDetails: SUCCESS');
         return Manifestation.fromDetailMap(jsonResponse['data']);
+      } else if (response.statusCode == 404) {
+        print('⚠️ [API] getManifestationDetails: Not found (404)');
+        // On renvoie un objet vide ou on gère l'erreur plus haut
+        throw "Manifestation non trouvée"; 
       } else {
+        print('🛑 [API] getManifestationDetails: FAILED (StatusCode=${response.statusCode}, Body=${response.body})');
         throw "Erreur serveur : ${response.statusCode}";
       }
     } catch (e) {
@@ -182,23 +290,29 @@ class DatabaseService {
   /// Authentification de l'utilisateur.
   /// NOTE: En production, utilisez impérativement HTTPS pour protéger les identifiants.
   Future<bool> connexion(String email, String mdp) async {
+    print('🚀 [API] connexion: START');
     try {
+      final url = Config.apiUrlConnexion;
+      print('🚀 [API] connexion: URL=$url');
       final response = await http.post(
-        Uri.parse(Config.apiUrlConnexion),
+        Uri.parse(url),
         headers: {'Accept': 'application/json'},
         body: {'email': email, 'password': mdp},
       );
+      print('🚀 [API] connexion: StatusCode=${response.statusCode}');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
-        print('DatabaseService: Connexion (User) ResponseBody=${response.body}');
+        print('🚀 [API] Connexion (User) ResponseBody=${response.body}');
         
         userId = _findId(jsonResponse);
         
-        // Récupération du Bearer Token
-        if (jsonResponse.containsKey('token')) {
-          _token = jsonResponse['token'].toString();
-        }
+        // Récupération du Bearer Token (cherche 'token' ou 'access_token' récursivement)
+        _token = jsonResponse['token']?.toString() ?? 
+                 jsonResponse['data']?['token']?.toString() ??
+                 jsonResponse['access_token']?.toString();
+        
+        print('✅ [API] Token trouvé: ${_token != null}');
 
         if (userId != null) {
           final userData = jsonResponse['user'] ?? jsonResponse['data'] ?? jsonResponse;
@@ -227,6 +341,18 @@ class DatabaseService {
       print('DatabaseService.connexion Error: $e');
       rethrow;
     }
+  }
+
+  /// Déconnexion sécurisée.
+  void deconnexion() {
+    isLoggedIn = false;
+    isAdmin = false;
+    userId = null;
+    userNom = null;
+    userPrenom = null;
+    userEmail = null;
+    _token = null;
+    print('✅ [Auth] Déconnexion réussie');
   }
 
   /// Inscription d'un nouvel utilisateur.
@@ -275,12 +401,16 @@ class DatabaseService {
 
   /// Authentification pour le personnel (Staff/Admin).
   Future<bool> connexionStaff(String email, String mdp) async {
+    print('🚀 [API] connexionStaff: START');
     try {
+      final url = Config.apiUrlConnexionStaff;
+      print('🚀 [API] connexionStaff: URL=$url');
       final response = await http.post(
-        Uri.parse(Config.apiUrlConnexionStaff),
+        Uri.parse(url),
         headers: {'Accept': 'application/json'},
         body: {'email': email, 'password': mdp},
       );
+      print('🚀 [API] connexionStaff: StatusCode=${response.statusCode}');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
@@ -289,15 +419,17 @@ class DatabaseService {
         isLoggedIn = true;
         userId = _findId(jsonResponse);
         
-        print('DatabaseService: Connexion Staff réussie, userId=$userId, isAdmin=$isAdmin');
+        print('✅ [API] Connexion Staff réussie, userId=$userId');
         
         // On cherche les données utilisateur pour le nom/prenom/email
         final userData = jsonResponse['user'] ?? jsonResponse['data'] ?? jsonResponse['staff'] ?? jsonResponse;
         
         // Récupération du token si présent
-        if (jsonResponse.containsKey('token')) {
-          _token = jsonResponse['token'].toString();
-        }
+        _token = jsonResponse['token']?.toString() ?? 
+                 jsonResponse['data']?['token']?.toString() ??
+                 jsonResponse['access_token']?.toString();
+        
+        print('✅ [API] Token Staff trouvé: ${_token != null}');
 
         userNom = userData['nom']?.toString() ?? userData['Nom']?.toString();
         userPrenom = userData['prenom']?.toString() ?? userData['Prenom']?.toString();
@@ -311,17 +443,6 @@ class DatabaseService {
       print('DatabaseService.connexionStaff Error: $e');
       rethrow;
     }
-  }
-
-  /// Déconnexion : réinitialise l'état local.
-  void deconnexion() {
-    isLoggedIn = false;
-    isAdmin = false;
-    userId = null;
-    userNom = null;
-    userPrenom = null;
-    userEmail = null;
-    _token = null;
   }
 
   /// Récupère toutes les réservations de l'utilisateur connecté.
@@ -346,6 +467,7 @@ class DatabaseService {
       } else if (response.statusCode == 404) {
         return []; // Pas de billets trouvés
       } else {
+        print('DatabaseService.getUserTickets: FAILED (StatusCode=${response.statusCode}, Body=${response.body})');
         throw "Erreur récupération tickets (${response.statusCode})";
       }
     } catch (e) {
@@ -355,27 +477,32 @@ class DatabaseService {
   }
 
   /// Crée une nouvelle réservation sur le serveur.
-  /// Retourne l'ID de la réservation si succès, null sinon.
+  /// Lance une exception en cas d'erreur avec un message descriptif.
   Future<int?> reserverTicket({
     required int festivalId,
     int? manifestationId,
     required String type,
     required double prix,
   }) async {
-    if (userId == null) return null;
+    if (userId == null) throw "Utilisateur non connecté";
+
+    final url = Config.apiUrlReserver;
+    final bodyData = {
+      'Id_Utilisateur': userId,
+      'id_festival': manifestationId == null ? festivalId : null,
+      'Id_Manifestation': manifestationId,
+      'mode_obtention': 'en_ligne',
+      'type_billet': type,
+      'prix_payer': prix,
+    };
+
+    print('DatabaseService.reserverTicket: START');
+    print('DatabaseService.reserverTicket: URL=$url');
+    print('DatabaseService.reserverTicket: Body=${jsonEncode(bodyData)}');
 
     try {
-      final bodyData = {
-        'Id_Utilisateur': userId,
-        'id_festival': manifestationId == null ? festivalId : null,
-        'Id_Manifestation': manifestationId,
-        'mode_obtention': 'en_ligne',
-        'type_billet': type,
-        'prix_paye': prix,
-      };
-
       final response = await http.post(
-        Uri.parse(Config.apiUrlReserver),
+        Uri.parse(url),
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -384,16 +511,23 @@ class DatabaseService {
         body: jsonEncode(bodyData),
       );
 
+      print('DatabaseService.reserverTicket: StatusCode=${response.statusCode}');
+      print('DatabaseService.reserverTicket: ResponseBody=${response.body}');
+
       if (response.statusCode == 201 || response.statusCode == 200) {
         final json = jsonDecode(response.body);
-        // Extraction de l'ID selon la structure retournée (data.id ou Id_Reservation)
         final data = json['data'] ?? json;
-        return int.tryParse((data['Id_Reservation'] ?? data['id']).toString());
+        final resId = int.tryParse((data['Id_Reservation'] ?? data['id']).toString());
+        print('DatabaseService.reserverTicket: SUCCESS, ReservationID=$resId');
+        return resId;
+      } else {
+        final errorMsg = _handleApiError(response);
+        print('DatabaseService.reserverTicket: API error: $errorMsg');
+        throw errorMsg;
       }
-      return null;
     } catch (e) {
-      print('DatabaseService.reserverTicket Error: $e');
-      return null;
+      print('DatabaseService.reserverTicket: EXCEPTION: $e');
+      rethrow;
     }
   }
 

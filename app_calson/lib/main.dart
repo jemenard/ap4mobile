@@ -211,7 +211,9 @@ class _MyHomePageState extends State<MyHomePage> {
       case 1:
         return GradientAppBar(
           title: "Festivals",
-          subtitle: "Découvrez tous les événements à venir",
+          subtitle: _databaseService.isAdmin 
+              ? "Vos festivals assignés" 
+              : "Découvrez tous les événements à venir",
           showLogo: false,
           actions: [
             const Icon(Icons.search, color: Colors.white),
@@ -294,9 +296,13 @@ class _MyHomePageState extends State<MyHomePage> {
               }
               
               if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Center(child: Text("Aucun festival à l'affiche")),
+                return Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Center(
+                    child: Text(_databaseService.isAdmin 
+                        ? "Aucun festival assigné" 
+                        : "Aucun festival à l'affiche"),
+                  ),
                 );
               }
 
@@ -386,7 +392,11 @@ class _MyHomePageState extends State<MyHomePage> {
         } else if (snapshot.hasError) {
           return Center(child: Text("Erreur de chargement des festivals"));
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text("Aucun festival disponible"));
+          return Center(
+            child: Text(_databaseService.isAdmin 
+                ? "Aucun festival ne vous est assigné pour le moment." 
+                : "Aucun festival disponible"),
+          );
         }
 
         return ListView.builder(
@@ -414,43 +424,125 @@ class _MyHomePageState extends State<MyHomePage> {
 
   /// Page Scanner : Interface pour le contrôle d'accès QR Code.
   Widget _buildScannerPage() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.qr_code_scanner, size: 80, color: Color(0xFF13293d)),
-          const SizedBox(height: 20),
-          const Text("Prêt à scanner ?", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 30),
-          ElevatedButton.icon(
-            onPressed: () async {
-              // Vérifie à nouveau si un festival est actif avant d'ouvrir la caméra
-              bool active = await _databaseService.isFestivalActive();
-              if (!active && mounted) {
-                _showNoFestivalDialog();
-                return;
-              }
+    return FutureBuilder<Festival?>(
+      future: _databaseService.getActiveFestival(),
+      builder: (context, festivalSnapshot) {
+        if (festivalSnapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-              final String? result = await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const Scanner()),
-              );
+        final festival = festivalSnapshot.data;
+        if (festival == null) {
+          return const Center(
+            child: Text("Aucun festival actif pour le moment."),
+          );
+        }
 
-              if (result != null && mounted) {
-                _handleScannerResult(result);
-              }
-            },
-            icon: const Icon(Icons.camera_alt),
-            label: const Text("Lancer le scanner"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF13293d),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-        ],
-      ),
+        return FutureBuilder<Map<String, int>>(
+          future: _databaseService.getFestivalStats(festival.id),
+          builder: (context, statsSnapshot) {
+            final stats = statsSnapshot.data ?? {'validated': 0, 'total': 0};
+            final isLoading = statsSnapshot.connectionState == ConnectionState.waiting;
+
+            return Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.qr_code_scanner, size: 80, color: Color(0xFF13293d)),
+                    const SizedBox(height: 20),
+                    Text(
+                      festival.theme,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF13293d)),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text("Prêt à scanner ?", style: TextStyle(fontSize: 18, color: Colors.grey)),
+                    const SizedBox(height: 40),
+                    
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        final String? result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const Scanner()),
+                        );
+
+                        if (result != null && mounted) {
+                          _handleScannerResult(result);
+                          setState(() {}); // Rafraîchir les stats après un scan possible
+                        }
+                      },
+                      icon: const Icon(Icons.camera_alt),
+                      label: const Text("Lancer le scanner"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF13293d),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 4,
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 50),
+                    
+                    // Compteur de places
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      color: Colors.white,
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.people, color: Color(0xFF406080)),
+                                const SizedBox(width: 10),
+                                const Text(
+                                  "Tickets Validés",
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 15),
+                            isLoading 
+                              ? const SizedBox(height: 30, width: 30, child: CircularProgressIndicator(strokeWidth: 2))
+                              : Text(
+                                  "${stats['validated']} / ${stats['total']}",
+                                  style: const TextStyle(
+                                    fontSize: 32, 
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF13293d),
+                                  ),
+                                ),
+                            const SizedBox(height: 10),
+                            LinearProgressIndicator(
+                              value: stats['total']! > 0 ? stats['validated']! / stats['total']! : 0,
+                              backgroundColor: Colors.grey.shade200,
+                              color: const Color(0xFF13293d),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    TextButton.icon(
+                      onPressed: () => setState(() {}),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text("Rafraîchir les compteurs"),
+                      style: TextButton.styleFrom(foregroundColor: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

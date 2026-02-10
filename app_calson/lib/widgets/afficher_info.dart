@@ -116,12 +116,18 @@ class AfficherInfo extends StatelessWidget {
       children: [
         Icon(icon, color: const Color(0xFF13293d), size: 24),
         const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text(
+                value, 
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                softWrap: true,
+              ),
+            ],
+          ),
         ),
       ],
     );

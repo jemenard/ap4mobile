@@ -114,7 +114,7 @@ class _PaymentPageState extends State<PaymentPage> {
         setState(() => _isProcessing = false);
 
         if (mounted) {
-          if (allSuccessful && successCount == totalToReserve) {
+          if (allSuccessful) {
             _showSuccessDialog();
           } else if (successCount > 0) {
             _showPartialSuccessDialog(successCount, totalToReserve);
@@ -124,7 +124,13 @@ class _PaymentPageState extends State<PaymentPage> {
         }
       } catch (e) {
         setState(() => _isProcessing = false);
-        if (mounted) _showErrorDialog("Une erreur est survenue : $e");
+        if (mounted) {
+          String message = e.toString();
+          if (message.startsWith("Exception: ")) {
+            message = message.substring(11);
+          }
+          _showErrorDialog("Une erreur est survenue : $message");
+        }
       }
     }
   }
