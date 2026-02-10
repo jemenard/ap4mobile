@@ -548,19 +548,25 @@ class _MyHomePageState extends State<MyHomePage> {
 
   /// Traitement du résultat scanné avec validation de sécurité.
   void _handleScannerResult(String result) async {
-    if (result.startsWith('http://') || result.startsWith('https://')) {
-      if (Config.isUrlAllowed(result)) {
-        final Uri url = Uri.parse(result);
-        if (await canLaunchUrl(url)) {
-          await launchUrl(url, mode: LaunchMode.externalApplication);
-        } else {
-          _showToast("Impossible d'ouvrir l'URL : $result");
-        }
-      } else {
-        _showToast("Accès refusé : ce code QR n'est pas autorisé.", isError: true);
-      }
+    // 1. On tente de valider le ticket auprès de l'API
+    _showToast("Validation en cours...");
+    final validation = await _databaseService.validateTicket(result);
+
+    if (validation['success'] == true) {
+      _showToast(validation['message'], isError: false);
+      // Le setState() déjà présent dans l'appelant rafraîchira les stats
     } else {
-      _showToast("Code détecté : $result");
+      // Si la validation échoue, on regarde si c'est une URL externe autorisée
+      if (result.startsWith('http://') || result.startsWith('https://')) {
+        if (Config.isUrlAllowed(result)) {
+          final Uri url = Uri.parse(result);
+          if (await canLaunchUrl(url)) {
+            await launchUrl(url, mode: LaunchMode.externalApplication);
+            return;
+          }
+        }
+      }
+      _showToast(validation['message'], isError: true);
     }
   }
 

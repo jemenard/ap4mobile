@@ -487,27 +487,33 @@ class DatabaseService {
     if (userId == null) throw "Utilisateur non connecté";
 
     final url = Config.apiUrlReserver;
-    final bodyData = {
+
+    // On garde ce qui est dans le validator PHP + le prix_payer qui est requis par la BDD
+    final Map<String, dynamic> bodyData = {
       'Id_Utilisateur': userId,
-      'id_festival': manifestationId == null ? festivalId : null,
       'Id_Manifestation': manifestationId,
+      'id_festival': manifestationId == null ? festivalId : null,
       'mode_obtention': 'en_ligne',
-      'type_billet': type,
-      'prix_payer': prix,
+      'prix_payer': prix, // Re-ajouté car requis par la BDD
     };
 
-    print('DatabaseService.reserverTicket: START');
-    print('DatabaseService.reserverTicket: URL=$url');
-    print('DatabaseService.reserverTicket: Body=${jsonEncode(bodyData)}');
+    final headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      if (_token != null) 'Authorization': 'Bearer $_token',
+    };
+
+    print('**************************************************');
+    print('📊 [DEBUG] ENVOI DE LA RÉSERVATION AU SERVEUR');
+    print('➡️ URL : $url');
+    print('➡️ HEADERS : $headers');
+    print('➡️ BODY JSON : ${jsonEncode(bodyData)}');
+    print('**************************************************');
 
     try {
       final response = await http.post(
         Uri.parse(url),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          if (_token != null) 'Authorization': 'Bearer $_token',
-        },
+        headers: headers,
         body: jsonEncode(bodyData),
       );
 
@@ -528,6 +534,55 @@ class DatabaseService {
     } catch (e) {
       print('DatabaseService.reserverTicket: EXCEPTION: $e');
       rethrow;
+    }
+  }
+
+  /// Valide un ticket (passe son statut à 'Validé' = 2).
+  /// Le 'code' peut être un ID brut ou une URL complète.
+  Future<Map<String, dynamic>> validateTicket(String code) async {
+    print('🚀 [API] validateTicket: START (code=$code)');
+    
+    // Extraction de l'ID depuis le code (raw ID ou URL)
+    String resId = code;
+    if (code.contains('/')) {
+      resId = code.split('/').last;
+    }
+    
+    final id = int.tryParse(resId);
+    if (id == null) {
+      print('🛑 [API] validateTicket: ID invalide');
+      return {'success': false, 'message': 'Code QR non reconnu (ID invalide)'};
+    }
+
+    final url = "${Config.apiUrlQrCode}/$id"; // On suppose que PUT/POST sur /reservation/{id} met à jour le statut
+    try {
+      print('🚀 [API] validateTicket: Requesting URL=$url');
+      final response = await http.put(
+        Uri.parse(url),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          if (_token != null) 'Authorization': 'Bearer $_token',
+        },
+        body: jsonEncode({'Id_Statut': 2}), // Statut 2 = Validé
+      );
+
+      print('🚀 [API] validateTicket: StatusCode=${response.statusCode}');
+      final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✅ [API] validateTicket: SUCCESS');
+        return {'success': true, 'message': 'Ticket validé avec succès !'};
+      } else {
+        print('🛑 [API] validateTicket: FAILED (${response.statusCode})');
+        return {
+          'success': false, 
+          'message': jsonResponse['message'] ?? 'Erreur lors de la validation (${response.statusCode})'
+        };
+      }
+    } catch (e) {
+      print('DatabaseService.validateTicket Error: $e');
+      return {'success': false, 'message': 'Erreur réseau : $e'};
     }
   }
 
