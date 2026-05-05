@@ -1,0 +1,12 @@
+apk/
+*.apk
+app_calson/app-debug.apk
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+.idea/
+*.iml

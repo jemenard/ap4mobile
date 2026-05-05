@@ -39,12 +39,14 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF13293d), 
+          seedColor: const Color(0xFF13293d),
           secondary: const Color(0xFF2a4e6c),
           brightness: Brightness.light,
         ),
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF5F5F7), // Gris très clair pour un look premium
+        scaffoldBackgroundColor: const Color(
+          0xFFF5F5F7,
+        ), // Gris très clair pour un look premium
       ),
       home: const MyHomePage(),
     );
@@ -84,27 +86,33 @@ class _MyHomePageState extends State<MyHomePage> {
 
     if (_databaseService.isLoggedIn && !_databaseService.isAdmin) {
       barToStack[destinations.length] = 2; // Accès aux tickets
-      destinations.add(const NavigationDestination(
-        icon: Icon(Icons.confirmation_number_outlined),
-        label: 'Tickets',
-      ));
+      destinations.add(
+        const NavigationDestination(
+          icon: Icon(Icons.confirmation_number_outlined),
+          label: 'Tickets',
+        ),
+      );
     }
 
     if (_databaseService.isAdmin) {
       barToStack[destinations.length] = 3; // Accès scanner (Admin uniquement)
-      destinations.add(const NavigationDestination(
-        icon: Icon(Icons.qr_code),
-        label: 'Scanner',
-      ));
+      destinations.add(
+        const NavigationDestination(
+          icon: Icon(Icons.qr_code),
+          label: 'Scanner',
+        ),
+      );
     }
 
     // Paramètres : toujours présent en dernière position
     final int settingsBarIndex = destinations.length;
     barToStack[settingsBarIndex] = 4;
-    destinations.add(const NavigationDestination(
-      icon: Icon(Icons.settings),
-      label: 'Paramètres',
-    ));
+    destinations.add(
+      const NavigationDestination(
+        icon: Icon(Icons.settings),
+        label: 'Paramètres',
+      ),
+    );
 
     // Détermination de l'index à surligner dans la barre
     int selectedBarIndex = 0;
@@ -128,7 +136,7 @@ class _MyHomePageState extends State<MyHomePage> {
         selectedIndex: selectedBarIndex,
         onDestinationSelected: (value) async {
           int targetStackIndex = barToStack[value] ?? 0;
-          
+
           // Vérification spécifique pour le scanner
           if (targetStackIndex == 3) {
             bool active = await _databaseService.isFestivalActive();
@@ -139,7 +147,8 @@ class _MyHomePageState extends State<MyHomePage> {
           }
 
           // Protection : redirection si accès non autorisé
-          if (!_databaseService.isLoggedIn && (targetStackIndex == 2 || targetStackIndex == 3)) {
+          if (!_databaseService.isLoggedIn &&
+              (targetStackIndex == 2 || targetStackIndex == 3)) {
             targetStackIndex = 4;
           }
 
@@ -158,7 +167,9 @@ class _MyHomePageState extends State<MyHomePage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Accès restreint"),
-        content: const Text("Le scanner n'est disponible que lorsqu'un festival est en cours."),
+        content: const Text(
+          "Le scanner n'est disponible que lorsqu'un festival est en cours.",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -182,15 +193,17 @@ class _MyHomePageState extends State<MyHomePage> {
             _databaseService.deconnexion();
             currentIndex = 0;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Déconnexion réussie.")),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text("Déconnexion réussie.")));
         } else {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const ConnexionPage()),
           ).then((_) {
-            setState(() {}); // Rafraîchissement pour mettre à jour la barre de navigation
+            setState(
+              () {},
+            ); // Rafraîchissement pour mettre à jour la barre de navigation
           });
         }
       },
@@ -204,20 +217,21 @@ class _MyHomePageState extends State<MyHomePage> {
       case 0:
         return GradientAppBar(
           title: "Bienvenue !",
-          subtitle: "${DateTime.now().hour < 18 ? 'Bonne journée' : 'Bonne soirée'} sur CaleSon",
+          subtitle:
+              "${DateTime.now().hour < 18 ? 'Bonne journée' : 'Bonne soirée'} sur CaleSon",
           showLogo: true,
           actions: [_buildAuthAction()],
         );
       case 1:
         return GradientAppBar(
           title: "Festivals",
-          subtitle: _databaseService.isAdmin 
-              ? "Vos festivals assignés" 
+          subtitle: _databaseService.isAdmin
+              ? "Vos festivals assignés"
               : "Découvrez tous les événements à venir",
           showLogo: false,
           actions: [
             const Icon(Icons.search, color: Colors.white),
-            _buildAuthAction()
+            _buildAuthAction(),
           ],
         );
       case 2:
@@ -258,7 +272,9 @@ class _MyHomePageState extends State<MyHomePage> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Card(
               elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: ListTile(
                 onTap: () {
                   Navigator.push(
@@ -273,10 +289,18 @@ class _MyHomePageState extends State<MyHomePage> {
                     color: const Color(0xFF13293d).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.new_releases, color: Color(0xFF13293d)),
+                  child: const Icon(
+                    Icons.new_releases,
+                    color: Color(0xFF13293d),
+                  ),
                 ),
-                title: const Text("Dernières sorties", style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text("Découvrez les dernières nouvelles et annonces."),
+                title: const Text(
+                  "Dernières sorties",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Text(
+                  "Découvrez les dernières nouvelles et annonces.",
+                ),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               ),
             ),
@@ -287,21 +311,28 @@ class _MyHomePageState extends State<MyHomePage> {
             title: "En Vedette",
             onMoreTap: () => setState(() => currentIndex = 1),
           ),
-          
+
           FutureBuilder<List<Festival>>(
             future: _databaseService.getFestivals(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()));
+                return const SizedBox(
+                  height: 200,
+                  child: Center(child: CircularProgressIndicator()),
+                );
               }
-              
-              if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+
+              if (snapshot.hasError ||
+                  !snapshot.hasData ||
+                  snapshot.data!.isEmpty) {
                 return Padding(
                   padding: const EdgeInsets.all(20),
                   child: Center(
-                    child: Text(_databaseService.isAdmin 
-                        ? "Aucun festival assigné" 
-                        : "Aucun festival à l'affiche"),
+                    child: Text(
+                      _databaseService.isAdmin
+                          ? "Aucun festival assigné"
+                          : "Aucun festival à l'affiche",
+                    ),
                   ),
                 );
               }
@@ -311,7 +342,9 @@ class _MyHomePageState extends State<MyHomePage> {
                 return GestureDetector(
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => AfficherInfo(festival: festival)),
+                    MaterialPageRoute(
+                      builder: (context) => AfficherInfo(festival: festival),
+                    ),
                   ),
                   child: Container(
                     margin: const EdgeInsets.all(6.0),
@@ -327,14 +360,17 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12.0),
-                      child: (festival.urlLogo != null && festival.urlLogo!.isNotEmpty)
-                        ? Image.network(
-                            festival.urlLogo!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            errorBuilder: (_, __, ___) => _buildPlaceholderLogo(),
-                          )
-                        : _buildPlaceholderLogo(),
+                      child:
+                          (festival.urlLogo != null &&
+                              festival.urlLogo!.isNotEmpty)
+                          ? Image.network(
+                              festival.urlLogo!,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              errorBuilder: (_, __, ___) =>
+                                  _buildPlaceholderLogo(),
+                            )
+                          : _buildPlaceholderLogo(),
                     ),
                   ),
                 );
@@ -374,7 +410,10 @@ class _MyHomePageState extends State<MyHomePage> {
             children: [
               Icon(Icons.info_outline, color: Colors.grey, size: 20),
               SizedBox(width: 12),
-              Text("Application CaleSon • v1.0.0", style: TextStyle(color: Colors.grey, fontSize: 13)),
+              Text(
+                "Application CaleSon • v1.0.0",
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
             ],
           ),
         ),
@@ -393,21 +432,25 @@ class _MyHomePageState extends State<MyHomePage> {
           return Center(child: Text("Erreur de chargement des festivals"));
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return Center(
-            child: Text(_databaseService.isAdmin 
-                ? "Aucun festival ne vous est assigné pour le moment." 
-                : "Aucun festival disponible"),
+            child: Text(
+              _databaseService.isAdmin
+                  ? "Aucun festival ne vous est assigné pour le moment."
+                  : "Aucun festival disponible",
+            ),
           );
         }
 
         return ListView.builder(
           padding: const EdgeInsets.symmetric(vertical: 10),
-          itemCount: snapshot.data!.length, 
+          itemCount: snapshot.data!.length,
           itemBuilder: (context, index) {
             final festival = snapshot.data![index];
             return GestureDetector(
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => AfficherInfo(festival: festival)),
+                MaterialPageRoute(
+                  builder: (context) => AfficherInfo(festival: festival),
+                ),
               ),
               child: FestivalItem(festival: festival),
             );
@@ -442,7 +485,8 @@ class _MyHomePageState extends State<MyHomePage> {
           future: _databaseService.getFestivalStats(festival.id),
           builder: (context, statsSnapshot) {
             final stats = statsSnapshot.data ?? {'validated': 0, 'total': 0};
-            final isLoading = statsSnapshot.connectionState == ConnectionState.waiting;
+            final isLoading =
+                statsSnapshot.connectionState == ConnectionState.waiting;
 
             return Center(
               child: SingleChildScrollView(
@@ -450,27 +494,42 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.qr_code_scanner, size: 80, color: Color(0xFF13293d)),
+                    const Icon(
+                      Icons.qr_code_scanner,
+                      size: 80,
+                      color: Color(0xFF13293d),
+                    ),
                     const SizedBox(height: 20),
                     Text(
                       festival.theme,
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF13293d)),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF13293d),
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 10),
-                    const Text("Prêt à scanner ?", style: TextStyle(fontSize: 18, color: Colors.grey)),
+                    const Text(
+                      "Prêt à scanner ?",
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                    ),
                     const SizedBox(height: 40),
-                    
+
                     ElevatedButton.icon(
                       onPressed: () async {
                         final String? result = await Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const Scanner()),
+                          MaterialPageRoute(
+                            builder: (context) => const Scanner(),
+                          ),
                         );
 
                         if (result != null && mounted) {
                           _handleScannerResult(result);
-                          setState(() {}); // Rafraîchir les stats après un scan possible
+                          setState(
+                            () {},
+                          ); // Rafraîchir les stats après un scan possible
                         }
                       },
                       icon: const Icon(Icons.camera_alt),
@@ -478,18 +537,25 @@ class _MyHomePageState extends State<MyHomePage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF13293d),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 18,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         elevation: 4,
                       ),
                     ),
-                    
+
                     const SizedBox(height: 50),
-                    
+
                     // Compteur de places
                     Card(
                       elevation: 2,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       color: Colors.white,
                       child: Padding(
                         padding: const EdgeInsets.all(20),
@@ -498,28 +564,42 @@ class _MyHomePageState extends State<MyHomePage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.people, color: Color(0xFF406080)),
+                                const Icon(
+                                  Icons.people,
+                                  color: Color(0xFF406080),
+                                ),
                                 const SizedBox(width: 10),
                                 const Text(
                                   "Tickets Validés",
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 15),
-                            isLoading 
-                              ? const SizedBox(height: 30, width: 30, child: CircularProgressIndicator(strokeWidth: 2))
-                              : Text(
-                                  "${stats['validated']} / ${stats['total']}",
-                                  style: const TextStyle(
-                                    fontSize: 32, 
-                                    fontWeight: FontWeight.w900,
-                                    color: Color(0xFF13293d),
+                            isLoading
+                                ? const SizedBox(
+                                    height: 30,
+                                    width: 30,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Text(
+                                    "${stats['validated']} / ${stats['total']}",
+                                    style: const TextStyle(
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFF13293d),
+                                    ),
                                   ),
-                                ),
                             const SizedBox(height: 10),
                             LinearProgressIndicator(
-                              value: stats['total']! > 0 ? stats['validated']! / stats['total']! : 0,
+                              value: stats['total']! > 0
+                                  ? stats['validated']! / stats['total']!
+                                  : 0,
                               backgroundColor: Colors.grey.shade200,
                               color: const Color(0xFF13293d),
                               borderRadius: BorderRadius.circular(10),
@@ -528,7 +608,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         ),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 20),
                     TextButton.icon(
                       onPressed: () => setState(() {}),
@@ -587,7 +667,10 @@ class _MyHomePageState extends State<MyHomePage> {
         children: [
           Icon(Icons.settings_suggest, size: 60, color: Colors.grey),
           SizedBox(height: 16),
-          Text("Paramètres bientôt disponibles", style: TextStyle(color: Colors.grey)),
+          Text(
+            "Paramètres bientôt disponibles",
+            style: TextStyle(color: Colors.grey),
+          ),
         ],
       ),
     );

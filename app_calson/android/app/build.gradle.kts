@@ -6,9 +6,8 @@ plugins {
 }
 
 android {
-    namespace = "com.example.app_calson"
-    compileSdk = 36
-    buildToolsVersion = "36.0.0"
+    namespace = "com.example.gestion_album"
+    compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -22,11 +21,11 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.app_calson"
+        applicationId = "com.example.gestion_album"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = 36
+        targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
